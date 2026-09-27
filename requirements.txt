@@ -1,5 +1,7 @@
 streamlit
 pandas
-numpy
 plotly
-google-genai
+pypdf
+pytesseract
+pdf2image
+pillow
