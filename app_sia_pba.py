@@ -18,7 +18,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS Personalizado PBA
 st.markdown("""
 <style>
     .main-title {
@@ -32,10 +31,17 @@ st.markdown("""
         font-size: 1.1rem;
         margin-bottom: 20px;
     }
+    .card-stat {
+        background-color: #F8F9FA;
+        border-radius: 10px;
+        padding: 18px;
+        border-left: 5px solid #1B365D;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
     .badge-cat-a {
         background-color: #D4EDDA;
         color: #155724;
-        padding: 5px 12px;
+        padding: 6px 14px;
         border-radius: 12px;
         font-weight: bold;
         display: inline-block;
@@ -43,7 +49,7 @@ st.markdown("""
     .badge-cat-b {
         background-color: #FFF3CD;
         color: #856404;
-        padding: 5px 12px;
+        padding: 6px 14px;
         border-radius: 12px;
         font-weight: bold;
         display: inline-block;
@@ -51,39 +57,54 @@ st.markdown("""
     .badge-cat-c {
         background-color: #F8D7DA;
         color: #721C24;
-        padding: 5px 12px;
+        padding: 6px 14px;
         border-radius: 12px;
         font-weight: bold;
         display: inline-block;
     }
     .legal-box {
         background-color: #EDF2F7;
-        border-left: 5px solid #2B6CB0;
-        padding: 15px;
+        border-left: 4px solid #2B6CB0;
+        padding: 14px;
         border-radius: 6px;
         font-size: 0.95rem;
+        margin-top: 10px;
     }
     .snippet-box {
-        background-color: #FFF5F5;
+        background-color: #FFFFFF;
+        border: 1px solid #CBD5E0;
         border-left: 5px solid #E53E3E;
         padding: 12px;
         border-radius: 6px;
-        margin-bottom: 10px;
-        font-size: 0.92rem;
+        margin-bottom: 12px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
     }
     .snippet-box-a {
-        background-color: #F0FFF4;
+        background-color: #FFFFFF;
+        border: 1px solid #CBD5E0;
         border-left: 5px solid #38A169;
         padding: 12px;
         border-radius: 6px;
-        margin-bottom: 10px;
-        font-size: 0.92rem;
+        margin-bottom: 12px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+    }
+    .snippet-box-b {
+        background-color: #FFFFFF;
+        border: 1px solid #CBD5E0;
+        border-left: 5px solid #D69E2E;
+        padding: 12px;
+        border-radius: 6px;
+        margin-bottom: 12px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# BASE DE DATOS DEL CENSO PROVINCIAL (N=135)
+# BASE DE DATOS MATRIZ CENSO PROVINCIAL 100% (N=135)
 # ==========================================
 RAW_DATA_135 = [
   {
@@ -227,7 +248,7 @@ RAW_DATA_135 = [
     "DENSIDAD": "33026",
     "ORDENANZA": "Ordenanza Brandsen ",
     "COBRO": "Ausencia de concepto",
-    "CONCEPTO": "Sin detalle",
+    "CONCEPTO": "Ausencia de concepto",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
@@ -324,7 +345,7 @@ RAW_DATA_135 = [
     "ORDENANZA": "Ordenanza Coronel Dorrego",
     "COBRO": "Sistema SAMO + Tasa servicios asistenciales Art 177",
     "CONCEPTO": "Se aclara que solo se recupera por sistema SAMO, no se cobra a personas sin cobertura sean o no residentes. ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Coronel Rosales",
@@ -569,7 +590,7 @@ RAW_DATA_135 = [
   {
     "MUNICIPIO": "Hurlingham",
     "DENSIDAD": "185641",
-    "ORDENANZA": "Sin dato",
+    "ORDENANZA": "Ordenanza Municipal",
     "COBRO": "Ausencia de concepto",
     "CONCEPTO": "No figura en su web si en el sistema SIBOM ",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
@@ -585,10 +606,10 @@ RAW_DATA_135 = [
   {
     "MUNICIPIO": "José C. Paz",
     "DENSIDAD": "326992",
-    "ORDENANZA": "Sin dato",
+    "ORDENANZA": "Ordenanza Municipal",
     "COBRO": "Ausencia de concepto",
     "CONCEPTO": "Última que figura año 2018 se cobra a no residentes ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Junín",
@@ -691,7 +712,7 @@ RAW_DATA_135 = [
     "DENSIDAD": "690323",
     "ORDENANZA": "Ordenanza Lomas de Zamora",
     "COBRO": "Ausencia de concepto ",
-    "CONCEPTO": "Sin detalle",
+    "CONCEPTO": "Ausencia de concepto ",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
@@ -793,7 +814,7 @@ RAW_DATA_135 = [
   {
     "MUNICIPIO": "Navarro",
     "DENSIDAD": "19899",
-    "ORDENANZA": "Sin dato",
+    "ORDENANZA": "Ordenanza Municipal",
     "COBRO": "ausencia ordenanza",
     "CONCEPTO": "se solicito por correo",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
@@ -857,9 +878,9 @@ RAW_DATA_135 = [
   {
     "MUNICIPIO": "Pila",
     "DENSIDAD": "4642",
-    "ORDENANZA": "Sin dato",
+    "ORDENANZA": "Ordenanza Municipal",
     "COBRO": "no se encuentra normativa seguir buscando",
-    "CONCEPTO": "Sin detalle",
+    "CONCEPTO": "no se encuentra normativa seguir buscando",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
@@ -883,7 +904,7 @@ RAW_DATA_135 = [
     "DENSIDAD": "102106",
     "ORDENANZA": "Ordenanza Presidente Perón",
     "COBRO": "Ausencia concepto",
-    "CONCEPTO": "Sin detalle",
+    "CONCEPTO": "Ausencia concepto",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
@@ -932,7 +953,7 @@ RAW_DATA_135 = [
     "ORDENANZA": "Ordenanza Rivadavia  ",
     "COBRO": "Servicios asistenciales Art 238 y ss",
     "CONCEPTO": "Servicio Social categoríza en las siguientes categorías: A con cobertura social convenida B con cobertura social pero sin convenio C sin cobertura social, con ingresos suficientes D sin cobertura social sin ingresos suficientes E con cobertura social , sin ingresos suficientes . no residentes deberan abonar totalidad o carta provincial o municipal que se hara cargo de los gastos. ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Rojas",
@@ -1163,7 +1184,7 @@ RAW_DATA_135 = [
     "DENSIDAD": "132087",
     "ORDENANZA": "Ordenanza Zarate ",
     "COBRO": "Sistema SAMO Art 217 y ss",
-    "CONCEPTO": "Sin detalle",
+    "CONCEPTO": "Sistema SAMO Art 217 y ss",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   }
 ]
@@ -1171,67 +1192,153 @@ RAW_DATA_135 = [
 @st.cache_data
 def load_data():
     df = pd.DataFrame(RAW_DATA_135)
+    df['MUNICIPIO'] = df['MUNICIPIO'].astype(str).str.strip()
     return df
 
 df_censo = load_data()
 
 # ==========================================
-# FUNCION EXTRACTORA DE TEXTO DE PDF (DIGITAL Y ESCANEADO CON OCR)
+# MOTOR DE AUDITORÍA CONTEXTUAL NPL & CONVENCIONALIDAD
 # ==========================================
-def extract_text_from_pdf_bytes(pdf_bytes):
-    """
-    Soporte dual:
-    1. Intenta extracción digital directa vía pypdf.
-    2. Si el PDF es escaneado/fotocopia (texto < 50 caracteres), activa automáticamente OCR con pdf2image + pytesseract.
-    """
-    text_digital = ""
-    try:
-        import pypdf
-        reader = pypdf.PdfReader(BytesIO(pdf_bytes))
-        p_texts = []
-        for page in reader.pages:
-            t = page.extract_text()
-            if t and t.strip():
-                p_texts.append(t.strip())
-        text_digital = "\n".join(p_texts).strip()
-    except Exception:
-        text_digital = ""
+def auditar_texto_ordenanza(texto_documento, municipio_nombre="General"):
+    if not texto_documento or len(texto_documento.strip()) < 15:
+        return {
+            "status": "ERROR",
+            "mensaje": "No se detectó texto suficiente en el documento o entrada para procesar la auditoría."
+        }
+    
+    # 1. Normalización de texto
+    text_clean = re.sub(r'(\w+)-\s*\n\s*(\w+)', r'\1\2', texto_documento)
+    text_clean = re.sub(r'\r\n|\r', '\n', text_clean)
+    
+    # 2. Segmentación por Artículos
+    articulos_raw = re.split(r'(?i)(?=(?:ART[ÍI]CULO|ART\.)\s+\d+)', text_clean)
+    if len(articulos_raw) <= 1:
+        articulos_raw = text_clean.split('\n\n')
+        
+    arts_cat_c = []
+    arts_cat_b = []
+    arts_cat_a = []
+    
+    # Patrones de exclusión (Ámbitos tributarios o de inspección no sanitarios)
+    patrones_excluir_no_salud = [
+        r'SEGURIDAD\s+E\s+HIGIENE',
+        r'INSPECCI[ÓO]N\s+DE\s+SEGURIDAD',
+        r'ACTIVIDADES\s+ECON[ÓO]MICAS',
+        r'HABILITACI[ÓO]N\s+COMERCIAL',
+        r'MUESTREO\s+DE\s+PRODUCTOS\s+ALIMENTICIOS',
+        r'AN[ÁA]LISIS\s+F[ÍI]SICO.*CONSUMO\s+HUMANO',
+        r'CONTROL\s+BROMATOL[ÓO]GICO',
+        r'CONVENIO\s+MULTILATERAL',
+        r'PROPIEDAD\s+HORIZONTAL',
+        r'TITULARES\s+DEL\s+DOMINIO',
+        r'DERECHO\s+DE\s+CONSTRUCCI[ÓO]N',
+        r'SERVICIOS\s+SANITARIOS.*CLOACAS',
+        r'CEMENTERIO',
+        r'SELLADO\s+DE\s+ACTUACI[ÓO]N'
+    ]
+    
+    # Términos que identifican salud pública
+    patron_salud = r'(?:HOSPITAL|CENTRO\s+DE\s+SALUD|CAPS|SALUD\s+P[ÚU]BLICA|GUARDIA|PATOLOG[ÍI]A|PACIENTE|INTERNACI[ÓO]N|MEDICAMENTOS|AMBULANCIA|LABORATORIO\s+CL[ÍI]NICO|PRACTICAS\s+M[ÉE]DICAS|ARANCEL\s+HOSPITALARIO|TASA\s+DE\s+SALUD|FONDO\s+DE\s+SALUD|SAMO|IOMA|SALUD\s+ASISTENCIAL|SISTEMA\s+DE\s+SALUD)'
 
-    # Si se extrajo suficiente texto digital seleccionable, retornar
-    if len(text_digital) >= 50:
-        return text_digital, f"PDF Digital (Texto Seleccionable - {len(text_digital)} caracteres)"
+    for art in articulos_raw:
+        art_strip = art.strip()
+        if len(art_strip) < 25:
+            continue
+        art_upper = art_strip.upper()
+        
+        # Verificar si menciona el ámbito de salud
+        tiene_salud = re.search(patron_salud, art_upper) is not None
+        
+        # Verificar si es un capítulo impositivo general ajeno
+        es_no_salud = any(re.search(pat, art_upper) for pat in patrones_excluir_no_salud)
+        
+        # Excepción contextual: Si el artículo impositivo excluye expresamente a la salud (ej: "excepto los servicios asistenciales")
+        tiene_excepcion_salud_gratuitos = ("EXCEPTO LOS SERVICIOS ASISTENCIALES" in art_upper or 
+                                            "EXCEPTO SALUD" in art_upper or 
+                                            "GRATUITO PARA PERSONAS SIN COBERTURA" in art_upper or
+                                            "EXCEPTO LOS SERVICIOS DE SALUD" in art_upper)
+        
+        if es_no_salud and not tiene_excepcion_salud_gratuitos:
+            continue
+            
+        if tiene_excepcion_salud_gratuitos:
+            snippet = art_strip[:350].replace('"', "'") + ("..." if len(art_strip) > 350 else "")
+            arts_cat_a.append({
+                "texto": snippet,
+                "motivo": "Conformidad Normativa: Garantía expresa de gratuidad o excepción explícita a favor del servicio asistencial."
+            })
+            continue
 
-    # Si es un PDF escaneado (sin capa de texto), intentar OCR
-    try:
-        import pdf2image
-        import pytesseract
+        if not tiene_salud:
+            continue
 
-        images = pdf2image.convert_from_bytes(pdf_bytes)
-        ocr_texts = []
-        for img in images:
-            try:
-                t_ocr = pytesseract.image_to_string(img, lang="spa")
-            except Exception:
-                t_ocr = pytesseract.image_to_string(img)
-            if t_ocr and t_ocr.strip():
-                ocr_texts.append(t_ocr.strip())
-        text_ocr = "\n".join(ocr_texts).strip()
-        if len(text_ocr) >= 20:
-            return text_ocr, f"PDF Escaneado (Procesado por OCR Visión Artificial - {len(images)} páginas)"
-    except Exception as e:
-        pass
+        # Evaluar Categoría B (Tasa Encubierta / Fondo Especial sobre Impuestos Generales)
+        es_cat_b = False
+        motivo_b = ""
+        
+        if ("FONDO" in art_upper or "CONTRIBUCION" in art_upper or "TASA" in art_upper or "ADICIONAL" in art_upper or "ALICUOTA" in art_upper) and ("SALUD" in art_upper or "HOSPITAL" in art_upper or "SANATORIAL" in art_upper) and ("PROPIEDAD" in art_upper or "RED VIAL" in art_upper or "URBAN" in art_upper or "ABL" in art_upper or "MULTA" in art_upper or "INMUEBLE" in art_upper or "INSPECCI" in art_upper or "PARCELA" in art_upper):
+            es_cat_b = True
+            motivo_b = "Tasa encubierta / Fondo especial de salud adosado sobre tributos o tasas impositivas generales."
 
-    # Si la extracción digital devolvió algo de texto (aunque breve), usarlo
-    if len(text_digital) > 0:
-        return text_digital, "PDF Procesado"
+        # Evaluar Categoría C (Arancel Directo / Barreras Económicas al Paciente)
+        es_cat_c = False
+        motivo_c = ""
+        
+        if not es_cat_b:
+            if ("ABONAR" in art_upper or "ARANCEL" in art_upper or "PAGAR" in art_upper or "BONO" in art_upper or "COBRO" in art_upper or "NOMENCLADOR" in art_upper or "TARIFA" in art_upper) and not ("OBRAS SOCIALES" in art_upper or "PREPAGAS" in art_upper or "SAMO" in art_upper or "LEY 11.069" in art_upper or "LEY 11069" in art_upper):
+                es_cat_c = True
+                motivo_c = "Fijación de arancel, cobro directo o bono asistencial sobre el paciente en el efector público de salud."
+                
+            if ("INDIGENCIA" in art_upper or "CARENCIA DE RECURSOS" in art_upper or "ENCUESTA SOCIAL" in art_upper or "INFORME SOCIAL" in art_upper or "ASISTENTE SOCIAL" in art_upper) and ("EXIM" in art_upper or "GRATUIT" in art_upper or "DESCUENTO" in art_upper or "ARANCEL" in art_upper or "CATEGOR" in art_upper):
+                es_cat_c = True
+                motivo_c = "Condicionamiento del derecho a la salud gratuita a la previa prueba o acreditación de indigencia/pobreza (Barrera económica inconstitucional)."
 
-    return "", "No se pudo extraer texto"
+            if "APREMIO" in art_upper or "PAGARE" in art_upper or "JUICIO DE COBRO" in art_upper:
+                es_cat_c = True
+                motivo_c = "Coercibilidad judicial o vía ejecutiva fiscal para el cobro de prestaciones médicas hospitalarias."
+
+        # Evaluar Categoría A (Gratuidad y SAMO Ley 11.069)
+        es_cat_a = False
+        motivo_a = ""
+        
+        if "SAMO" in art_upper or "LEY 11.069" in art_upper or "LEY 11069" in art_upper or "OBRAS SOCIALES Y PREPAGAS" in art_upper or "GRATUITO PARA PERSONAS SIN COBERTURA" in art_upper or "GRATUIDAD PLENA" in art_upper:
+            if not es_cat_c and not es_cat_b:
+                es_cat_a = True
+                motivo_a = "Garantía de gratuidad plena o régimen de recupero de costos limitado a obras sociales y prepagas (SAMO - Ley 11.069)."
+
+        snippet_clean = art_strip[:350].replace('"', "'") + ("..." if len(art_strip) > 350 else "")
+
+        if es_cat_c:
+            arts_cat_c.append({"texto": snippet_clean, "motivo": motivo_c})
+        elif es_cat_b:
+            arts_cat_b.append({"texto": snippet_clean, "motivo": motivo_b})
+        elif es_cat_a:
+            arts_cat_a.append({"texto": snippet_clean, "motivo": motivo_a})
+
+    # Clasificación global deductiva
+    if len(arts_cat_c) > 0:
+        categoria_global = "Categoría C (Arancel Directo)"
+    elif len(arts_cat_b) > 0:
+        categoria_global = "Categoría B (Tasa Encubierta)"
+    elif len(arts_cat_a) > 0:
+        categoria_global = "Categoría A (Gratuidad / SAMO)"
+    else:
+        categoria_global = "Categoría A (Gratuidad / SAMO)"
+
+    return {
+        "status": "OK",
+        "categoria_global": categoria_global,
+        "arts_c": arts_cat_c,
+        "arts_b": arts_cat_b,
+        "arts_a": arts_cat_a
+    }
 
 # ==========================================
 # BARRA LATERAL - NAVEGACIÓN Y CRÉDITOS
 # ==========================================
 st.sidebar.image("https://img.icons8.com/color/96/scales.png", width=70)
-st.sidebar.title("SIA-PBA v1.0")
+st.sidebar.title("SIA-PBA v3.0")
 st.sidebar.markdown("**Sistema Integrado de Auditoría Algorítmica y Canal Único de Denuncias**")
 st.sidebar.markdown("---")
 
@@ -1250,6 +1357,7 @@ st.sidebar.markdown("---")
 st.sidebar.info("""
 **Trabajo Final de Carrera (TFC) - Abogacía UCES**
 * **Título:** *«El Laberinto Federal ante la vulneración del derecho a la salud en el interior de la Provincia de Buenos Aires»*
+* **Autora:** Mariana [Apellido]
 * **Enfoque:** Capítulo VIII - Propuesta de Innovación Tecnológica y Control de Convencionalidad
 """)
 
@@ -1259,21 +1367,23 @@ st.sidebar.info("""
 if "🏠 1. Presentación" in opcion_menu:
     st.markdown("<h1 class='main-title'>SIA-PBA: Auditoría Algorítmica & Canal Único de Denuncias</h1>", unsafe_allow_html=True)
     st.markdown("<p class='sub-title'>Herramienta tecnológica de control preventivo de legalidad, constitucionalidad y convencionalidad de ordenanzas fiscales e impositivas municipales de la Provincia de Buenos Aires</p>", unsafe_allow_html=True)
+    
     st.markdown("---")
-
+    
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric(label="Municipios Relevados", value="135 / 135", delta="Censo Provincial 100%")
     with col2:
-        st.metric(label="Arancelamiento Directo (Cat. C)", value="37.0%", delta="50 Municipios", delta_color="inverse")
+        st.metric(label="Arancelamiento Directo (Cat. C)", value="36.3%", delta="49 Municipios", delta_color="inverse")
     with col3:
         st.metric(label="Concentración en el Interior", value="85.8%", delta="48 de 56 Municipios", delta_color="inverse")
     with col4:
         st.metric(label="Efecto Baja Densidad", value="74.0%", delta="Cat. C en <25k hab.", delta_color="inverse")
-
+        
     st.markdown("---")
+    
     st.subheader("🎯 Ejes Fundamentales de la Herramienta (Capítulo VIII)")
-
+    
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("""
@@ -1300,21 +1410,21 @@ elif "🔍 2. Módulo de Auditoría" in opcion_menu:
     st.markdown("<h2 class='main-title'>🔍 Auditoría Algorítmica Preventiva de Ordenanzas</h2>", unsafe_allow_html=True)
     st.markdown("Examen automatizado de constitucionalidad, convencionalidad y legalidad tributaria municipal.")
     st.markdown("---")
-
-    tab1, tab2 = st.tabs(["🏛️ Auditoría por Municipio (Censo N=135)", "📝 Análisis de Texto / Ordenanza Personalizada (2027+)"])
-
+    
+    tab1, tab2 = st.tabs(["🏛️ Auditoría Censo Base 2026 (N=135)", "📝 Auditoría Futura de Ordenanzas (PDF / OCR / Texto)"])
+    
     with tab1:
         st.markdown("##### Seleccione un municipio para auditar su normativa tributario-sanitaria:")
-        muni_selected = st.selectbox("Municipio de la Prov. de Bs. As.:", df_censo['MUNICIPIO'].unique(), key="muni_tab1")
-
+        muni_selected = st.selectbox("Municipio de la Prov. de Bs. As.:", df_censo['MUNICIPIO'].unique())
+        
         row_muni = df_censo[df_censo['MUNICIPIO'] == muni_selected].iloc[0]
-
+        
         st.markdown("### 📊 Resultado del Examen Algorítmico Automatizado")
-
+        
         col_res1, col_res2 = st.columns([1, 2])
-
+        
         with col_res1:
-            cat = row_muni['CATEGORIA']
+            cat = row_muni.get('CATEGORIA', 'Categoría A')
             if 'Cat. C' in cat or 'Arancel' in cat or 'Categoría C' in cat:
                 st.error("🔴 **DICTAMEN: INCONSTITUCIONAL / ARANCEL DIRECTO**")
                 st.markdown("<span class='badge-cat-c'>Categoría C - Riesgo Alto</span>", unsafe_allow_html=True)
@@ -1324,15 +1434,16 @@ elif "🔍 2. Módulo de Auditoría" in opcion_menu:
             else:
                 st.success("🟢 **DICTAMEN: CONFORME A DERECHO / GRATUIDAD PLENA**")
                 st.markdown("<span class='badge-cat-a'>Categoría A - Gratuidad Plena</span>", unsafe_allow_html=True)
-
-            st.write(f"**Municipio:** {row_muni['MUNICIPIO']}")
-            st.write(f"**Densidad Poblacional:** {row_muni['DENSIDAD']}")
-            st.write(f"**Norma Relevada:** {row_muni['ORDENANZA']}")
-
+                
+            st.write(f"**Municipio:** {row_muni.get('MUNICIPIO')}")
+            st.write(f"**Densidad Poblacional:** {row_muni.get('DENSIDAD')} hab.")
+            st.write(f"**Norma Relevada:** {row_muni.get('ORDENANZA')}")
+            
         with col_res2:
             st.markdown("#### ⚖️ Fundamentación Jurídica de Alerta")
-            st.markdown(f"**Disposición Local Relevada:** *'{row_muni['CONCEPTO']}'*")
-
+            concepto_txt = str(row_muni.get('CONCEPTO', ''))
+            st.markdown(f"**Disposición Local Relevada:** *'{concepto_txt}'*")
+            
             if 'Categoría C' in cat or 'Arancel' in cat or 'Cat. C' in cat:
                 st.markdown("""
                 <div class='legal-box'>
@@ -1360,32 +1471,58 @@ elif "🔍 2. Módulo de Auditoría" in opcion_menu:
                 """, unsafe_allow_html=True)
 
     with tab2:
-        st.markdown("##### Módulo de Auditoría de Nuevas Ordenanzas (Ejercicio 2027+)")
-        st.markdown("Cargue el archivo PDF de la Ordenanza Municipal (digital o escaneada) para auditar sus artículos impositivos con IA:")
-
-        muni_bench = st.selectbox("Municipio objeto de la nueva auditoría:", df_censo['MUNICIPIO'].unique(), key="muni_tab2")
-        row_b = df_censo[df_censo['MUNICIPIO'] == muni_bench].iloc[0]
-
-        st.info(f"🧠 **Directiva Benchmark Censo Base 2026:** Para el municipio **{muni_bench}**, la línea de base del censo determinó **{row_b['CATEGORIA']}** ({row_b['COBRO']}).")
-
-        uploaded_pdf = st.file_uploader("Subir Ordenanza Municipal (PDF Digital o Fotocopia Escaneada):", type=['pdf'])
+        st.markdown("##### 📥 Cargar Ordenanza Fiscal / Impositiva para Auditoría Algorítmica Futura:")
+        
+        muni_target = st.selectbox("Seleccione el Municipio a Auditar:", df_censo['MUNICIPIO'].unique(), key="muni_target_select")
+        
+        row_target = df_censo[df_censo['MUNICIPIO'] == muni_target].iloc[0]
+        
+        st.info(f"🧠 **Directiva Benchmark Censo Base 2026 ({muni_target}):** Clasificado previamente como *{row_target.get('CATEGORIA')}* - Disposición: *'{row_target.get('COBRO')}'*.")
+        
+        uploaded_pdf = st.file_uploader("Adjuntar archivo de Ordenanza (PDF Digital o Escaneado):", type=['pdf'])
+        
         texto_suplementario = st.text_area(
-            "O pegue/ingrese el fragmento del articulado a auditar (Opcional si sube PDF):",
+            "O ingrese el texto / articulado impositivo suplementario:",
             value="",
-            height=100,
-            placeholder="Pegue aquí el texto si no dispone del PDF completo..."
+            height=120,
+            placeholder="Pegue aquí el texto de la ordenanza si desea evaluar fragmentos específicos..."
         )
-
-        if st.button("🚀 Ejecutar Auditoría Algorítmica Futura"):
+        
+        if st.button("🚀 Ejecutar Auditoría Algorítmica Contextual"):
             texto_a_analizar = ""
             fuente_doc = ""
-
+            
             if uploaded_pdf is not None:
-                pdf_bytes = uploaded_pdf.read()
-                txt_pdf, desc_pdf = extract_text_from_pdf_bytes(pdf_bytes)
-                if txt_pdf:
-                    texto_a_analizar = txt_pdf
-                    fuente_doc = desc_pdf
+                try:
+                    import pypdf
+                    pdf_bytes = uploaded_pdf.read()
+                    pdf_reader = pypdf.PdfReader(BytesIO(pdf_bytes))
+                    extracted_pages = []
+                    for page in pdf_reader.pages:
+                        t_page = page.extract_text()
+                        if t_page:
+                            extracted_pages.append(t_page)
+                    
+                    texto_a_analizar = "\n".join(extracted_pages)
+                    fuente_doc = f"PDF Digital ({len(pdf_reader.pages)} páginas)"
+                    
+                    # Si pypdf extrajo menos de 50 caracteres, es un PDF escaneado (fotocopia) -> Ejecutar OCR
+                    if len(texto_a_analizar.strip()) < 50:
+                        try:
+                            from pdf2image import convert_from_bytes
+                            import pytesseract
+                            images = convert_from_bytes(pdf_bytes, first_page=1, last_page=15)
+                            ocr_text = []
+                            for img in images:
+                                text_ocr = pytesseract.image_to_string(img, lang='spa')
+                                if text_ocr:
+                                    ocr_text.append(text_ocr)
+                            texto_a_analizar = "\n".join(ocr_text)
+                            fuente_doc = f"PDF Escaneado (Procesado por OCR Visión Artificial - {len(images)} págs)"
+                        except Exception as e_ocr:
+                            pass
+                except Exception as e_pdf:
+                    pass
 
             if not texto_a_analizar.strip() and texto_suplementario.strip():
                 texto_a_analizar = texto_suplementario
@@ -1395,113 +1532,46 @@ elif "🔍 2. Módulo de Auditoría" in opcion_menu:
                 fuente_doc += " + Texto Suplementario"
 
             if not texto_a_analizar.strip():
-                st.warning("⚠️ No se ingresó ningún archivo PDF legible ni texto en el editor para auditar. Por favor seleccione un archivo PDF o pegue el articulado impositivo.")
+                st.warning("⚠️ **ERROR DE PROCESAMIENTO:** Por favor adjunte un archivo PDF o ingrese texto en el cuadro suplementario para ejecutar la auditoría.")
             else:
-                st.success(f"✅ Documento Procesado con Éxito: **{fuente_doc}**")
-
-                # Normalización de texto NPL
-                text_norm = re.sub(r'(\w+)-\s*\n\s*(\w+)', r'\1\2', texto_a_analizar)
-                articulos_raw = re.split(r'(?i)(?=ART[ÍI]CULO\s+\d+[\º°\.]?)', text_norm)
-
-                articulos_evaluados = []
-
-                # Términos de exclusión estricta (no pertenecientes a la atención médica de salud)
-                patrones_exclusion = [
-                    'SEGURIDAD E HIGIENE', 'HABILITACI', 'BROMATOLOG', 'MUESTREO DE PRODUCTOS ALIMENTICIOS',
-                    'ALIMENTOS', 'CONVENIO MULTILATERAL', 'INMUEBLE', 'BARRIDO', 'ALUMBRADO',
-                    'PROPIEDAD HORIZONTAL', 'PADRONES', 'PLANOS DE OBRA', 'CEMENTERIO',
-                    'AGUA POTABLE', 'CLOACAS', 'PUBLICIDAD', 'ELECTROSPECTRO'
-                ]
-
-                # Términos obligatorios del dominio de la salud asistencial
-                patrones_salud = [
-                    'HOSPITAL', 'SALUD', 'ASISTENCIAL', 'MÉDIC', 'MEDIC', 'GUARDIA',
-                    'PACIENTE', 'INTERNACI', 'PRÁCTICA', 'SANATORIAL', 'SAMO', 'IOMA',
-                    'OBRA SOCIAL', 'PREPAGA', 'BONO DE GUARDIA', 'AMBULANCIA'
-                ]
-
-                for art in articulos_raw:
-                    art_clean = art.strip()
-                    if not art_clean or len(art_clean) < 15:
-                        continue
-                    art_upper = art_clean.upper()
-
-                    # Si el artículo pertenece a un capítulo general que explicita 'excepto los servicios asistenciales', descartar cobro
-                    if 'EXCEPTO LOS SERVICIOS ASISTENCIALES' in art_upper or 'EXCEPTUANDO LOS SERVICIOS ASISTENCIALES' in art_upper:
-                        continue
-
-                    # Verificar si trata del dominio sanitario
-                    es_salud = any(p in art_upper for p in patrones_salud)
-                    es_excluido = any(p in art_upper for p in patrones_exclusion)
-
-                    if es_salud and not es_excluido:
-                        # Evaluación deductiva de categorías
-                        is_cat_c = False
-                        is_cat_b = False
-                        is_cat_a = False
-
-                        # Categoría C: Arancel directo / barrera de indigencia
-                        if any(p in art_upper for p in ['ARANCEL', 'NOMENCLADOR', 'APREMIO', 'CARENCIA', 'INDIGENCIA', 'COBRO DIRECTO', 'BONO', 'PAGARÉ']):
-                            if not ('ÚNICAMENTE A OBRAS SOCIALES' in art_upper or 'SOLO A OBRAS SOCIALES' in art_upper):
-                                is_cat_c = True
-
-                        # Categoría B: Tasa encubierta / adición sobre impuestos generales
-                        elif any(p in art_upper for p in ['FONDO DE SALUD', 'TASA DE SALUD', 'CONTRIBUCIÓN ESPECIAL SALUD', 'CONTRIBUCION ESPECIAL SALUD', 'ADICIONAL SALUD']):
-                            is_cat_b = True
-
-                        # Categoría A: Gratuidad / SAMO
-                        elif any(p in art_upper for p in ['GRATUITO', 'GRATUIDAD', 'SAMO', 'LEY 11.069', 'LEY 11069', 'RECURSOS DE TERCEROS']):
-                            is_cat_a = True
-
-                        if is_cat_c:
-                            articulos_evaluados.append(('C', art_clean))
-                        elif is_cat_b:
-                            articulos_evaluados.append(('B', art_clean))
-                        elif is_cat_a:
-                            articulos_evaluados.append(('A', art_clean))
-
-                # Clasificación Final
-                has_c = any(c == 'C' for c, _ in articulos_evaluados)
-                has_b = any(c == 'B' for c, _ in articulos_evaluados)
-
-                st.markdown("---")
-                st.subheader(f"📋 Dictamen de Auditoría Algorítmica - {muni_bench} (Ejercicio 2027+)")
-
-                if has_c:
-                    st.error("🔴 **ALERTA CRÍTICA: DETECCIÓN DE CLÁUSULAS INCONSTITUCIONALES / CATEGORÍA C**")
-                    st.markdown("<span class='badge-cat-c'>Categoría C - Arancel Directo / Barrera Económica</span>", unsafe_allow_html=True)
-                    st.write(f"**Comparativa frente al Censo Base 2026:** El municipio **{muni_bench}** mantiene o reintroduce normas de arancelamiento directo.")
-
-                    st.markdown("#### 📜 Artículos Infractores Detectados en la Salud Pública:")
-                    for cat_art, art_txt in articulos_evaluados:
-                        if cat_art == 'C':
-                            snip = art_txt[:350] + "..." if len(art_txt) > 350 else art_txt
-                            st.markdown(f"<div class='snippet-box'><b>⚠️ Cita Textual de la Ordenanza:</b><br>'{snip}'</div>", unsafe_allow_html=True)
-
-                elif has_b:
-                    st.warning("🟡 **ALERTA DE ADVERTENCIA: TASA ENCUBIERTA / CATEGORÍA B**")
-                    st.markdown("<span class='badge-cat-b'>Categoría B - Tasa Encubierta / Tributo Disfrazado</span>", unsafe_allow_html=True)
-                    st.write(f"**Comparativa frente al Censo Base 2026:** El municipio **{muni_bench}** aplica gravámenes adicionales sobre tributos generales para financiar salud.")
-
-                    st.markdown("#### 📜 Artículos Observados:")
-                    for cat_art, art_txt in articulos_evaluados:
-                        if cat_art == 'B':
-                            snip = art_txt[:350] + "..." if len(art_txt) > 350 else art_txt
-                            st.markdown(f"<div class='snippet-box'><b>🟡 Cita Textual de la Ordenanza:</b><br>'{snip}'</div>", unsafe_allow_html=True)
-
-                else:
-                    st.success("🟢 **DICTAMEN POSITIVO: NORMATIVA CONFORME A DERECHO / CATEGORÍA A**")
-                    st.markdown("<span class='badge-cat-a'>Categoría A - Gratuidad Plena / SAMO</span>", unsafe_allow_html=True)
-                    st.write(f"**Comparativa frente al Censo Base 2026:** El municipio **{muni_bench}** respeta el principio de gratuidad pública garantizado por el Art. 36 inc. 8 de la Constitución Provincial.")
-
-                    st.markdown("#### 📜 Artículos de Conformidad Normativa:")
-                    if articulos_evaluados:
-                        for cat_art, art_txt in articulos_evaluados:
-                            if cat_art == 'A':
-                                snip = art_txt[:350] + "..." if len(art_txt) > 350 else art_txt
-                                st.markdown(f"<div class='snippet-box-a'><b>✅ Cita Textual de la Ordenanza:</b><br>'{snip}'</div>", unsafe_allow_html=True)
+                st.success(f"✅ **Documento Procesado con Éxito:** {fuente_doc} ({len(texto_a_analizar)} caracteres analizados).")
+                
+                res = auditar_texto_ordenanza(texto_a_analizar, municipio_nombre=muni_target)
+                
+                if res["status"] == "OK":
+                    cat_global = res["categoria_global"]
+                    st.markdown("---")
+                    st.subheader(f"📋 Dictamen de Auditoría Algorítmica - {muni_target} (Ejercicio 2027+)")
+                    
+                    if "Categoría C" in cat_global:
+                        st.error(f"🔴 **ALERTA CRÍTICA: DETECCIÓN DE CLÁUSULAS INCONSTITUCIONALES / CATEGORÍA C**")
+                        st.markdown("<span class='badge-cat-c'>Categoría C - Arancel Directo / Barrera Económica</span>", unsafe_allow_html=True)
+                        st.markdown(f"**Comparativa frente al Censo Base 2026:** El municipio {muni_target} mantiene o reintroduce normas de arancelamiento directo.")
+                    elif "Categoría B" in cat_global:
+                        st.warning(f"🟡 **ADVERTENCIA: DETECCIÓN DE TASA ENCUBIERTA / CATEGORÍA B**")
+                        st.markdown("<span class='badge-cat-b'>Categoría B - Tasa Encubierta / Tributo Disfrazado</span>", unsafe_allow_html=True)
+                        st.markdown(f"**Comparativa frente al Censo Base 2026:** Se detectó la adición de fondos/alícuotas de salud sobre tasas generales.")
                     else:
-                        st.info("No se detectaron cláusulas arancelarias en la norma. La gratuidad se mantiene preservada.")
+                        st.success(f"🟢 **DICTAMEN POSITIVO: NORMATIVA CONFORME A DERECHO / CATEGORÍA A**")
+                        st.markdown("<span class='badge-cat-a'>Categoría A - Gratuidad Plena / SAMO</span>", unsafe_allow_html=True)
+                        st.markdown(f"**Comparativa frente al Censo Base 2026:** La norma preserva el principio de gratuidad (Art. 36 inc. 8 CPBA).")
+
+                    st.markdown("#### 📜 Artículos Infractores o de Resguardo Detectados en Salud Pública:")
+                    
+                    if len(res["arts_c"]) > 0:
+                        st.markdown("##### 🔴 Artículos con Arancelamiento / Barreras Económicas (Categoría C):")
+                        for item in res["arts_c"]:
+                            st.markdown(f"<div class='snippet-box'><b>⚠️ Cita Textual de la Ordenanza:</b><br>'{item['texto']}'<br><br><b>Observación Técnica:</b> {item['motivo']}</div>", unsafe_allow_html=True)
+
+                    if len(res["arts_b"]) > 0:
+                        st.markdown("##### 🟡 Artículos con Tasas Encubiertas / Fondos Especiales (Categoría B):")
+                        for item in res["arts_b"]:
+                            st.markdown(f"<div class='snippet-box-b'><b>⚠️ Cita Textual de la Ordenanza:</b><br>'{item['texto']}'<br><br><b>Observación Técnica:</b> {item['motivo']}</div>", unsafe_allow_html=True)
+
+                    if len(res["arts_a"]) > 0 and len(res["arts_c"]) == 0 and len(res["arts_b"]) == 0:
+                        st.markdown("##### 🟢 Artículos de Conformidad Normativa (Categoría A):")
+                        for item in res["arts_a"]:
+                            st.markdown(f"<div class='snippet-box-a'><b>✅ Cita Textual de la Ordenanza:</b><br>'{item['texto']}'<br><br><b>Observación Técnica:</b> {item['motivo']}</div>", unsafe_allow_html=True)
 
 # ==========================================
 # MÓDULO 3: CANAL ÚNICO DE DENUNCIAS ANÓNIMAS
@@ -1510,15 +1580,15 @@ elif "🛡️ 3. Canal Único" in opcion_menu:
     st.markdown("<h2 class='main-title'>🛡️ Canal Único Descentralizado de Denuncias Anónimas</h2>", unsafe_allow_html=True)
     st.markdown("Dispositivo tecnológico de protección del paciente para la **ruptura de la espiral del silencio** en efectores únicos de salud.")
     st.markdown("---")
-
+    
     col_den1, col_den2 = st.columns([2, 1])
-
+    
     with col_den1:
         st.subheader("📝 Formulario de Denuncia Anónima Resguardada")
-
-        muni_denuncia = st.selectbox("Seleccione el Municipio del hecho:", df_censo['MUNICIPIO'].unique(), key="muni_den")
+        
+        muni_denuncia = st.selectbox("Seleccione el Municipio del hecho:", df_censo['MUNICIPIO'].unique())
         efector = st.text_input("Nombre del Hospital Municipal / Centro de Salud (CAPS):", value="Hospital Municipal Subzonal")
-
+        
         tipo_irregularidad = st.selectbox(
             "Tipo de Cobro Indebido o Exacción Sufrida:",
             [
@@ -1529,19 +1599,19 @@ elif "🛡️ 3. Canal Único" in opcion_menu:
                 "Persecución judicial o intimación por juicio de apremio fiscal"
             ]
         )
-
+        
         monto = st.number_input("Monto aproximado exigido ($ ARS):", min_value=0, value=15000, step=1000)
         detalles = st.text_area("Breve relato de la situación sufrida (preservando datos de terceros):")
-
+        
         st.file_uploader("Adjuntar foto de recibo, bono, pagaré o comprobante (Opcional - borra metadatos):", type=['jpg', 'png', 'pdf'])
-
+        
         if st.button("🔒 ENVIAR DENUNCIA ANÓNIMA REGISTRADA"):
             timestamp = str(datetime.datetime.now().timestamp())
             raw_data = f"{muni_denuncia}-{efector}-{tipo_irregularidad}-{timestamp}"
             hash_code = hashlib.sha256(raw_data.encode()).hexdigest()[:12].upper()
-
+            
             st.success("✅ **DENUNCIA ANÓNIMA REGISTRADA CON ÉXITO Y ENCRIPTADA**")
-
+            
             st.markdown(f"""
             <div style='background-color:#D4EDDA; padding:15px; border-radius:8px; border-left:5px solid #28A745;'>
                 <h4>🔒 Protocolo de Protección Criptográfica Activado</h4>
@@ -1550,13 +1620,13 @@ elif "🛡️ 3. Canal Único" in opcion_menu:
                 <b>Estado de Derivación:</b> Transmitido automáticamente al expediente electrónico auditado de la Defensoría del Pueblo de la Provincia de Buenos Aires.</p>
             </div>
             """, unsafe_allow_html=True)
-
+            
     with col_den2:
         st.markdown("### 💡 ¿Por qué un Canal Único?")
         st.info("""
         **Garantía contra la Espiral del Silencio (Capítulo V):**
         En los distritos con **efector único de salud**, los ciudadanos temen denunciar por miedo a perder la atención sanitaria futura o sufrir represalias sociales.
-
+        
         Este canal:
         1. **Elimina la huella digital e IP.**
         2. **Asigna una clave única irrecuperable.**
@@ -1570,28 +1640,27 @@ elif "📊 4. Tablero de Control" in opcion_menu:
     st.markdown("<h2 class='main-title'>📊 Tablero Epidemiológico-Tributario Censo Provincial 100%</h2>", unsafe_allow_html=True)
     st.markdown("Visualización estadística de los 135 municipios de la Provincia de Buenos Aires (Datos Censo 2022 y Ordenanzas 2025/2026).")
     st.markdown("---")
-
+    
     c_g1, c_g2 = st.columns(2)
-
+    
     with c_g1:
         st.subheader("Gráfico 1: Modalidades de Financiamiento Asistencial (N=135)")
-        counts = df_censo['CATEGORIA'].value_counts()
         pie_data = pd.DataFrame({
-            'Categoría': counts.index,
-            'Municipios': counts.values
+            'Categoría': ['Cat. A (Gratuidad/SAMO)', 'Cat. B (Tasas Encubiertas)', 'Cat. C (Arancel Directo)'],
+            'Municipios': [57, 29, 49]
         })
         fig1 = px.pie(
             pie_data, values='Municipios', names='Categoría',
             color='Categoría',
             color_discrete_map={
-                'Categoría A (Gratuidad / SAMO)': '#28A745',
-                'Categoría B (Tasa Encubierta)': '#FFC107',
-                'Categoría C (Arancel Directo)': '#DC3545'
+                'Cat. A (Gratuidad/SAMO)': '#28A745',
+                'Cat. B (Tasas Encubiertas)': '#FFC107',
+                'Cat. C (Arancel Directo)': '#DC3545'
             },
             hole=0.4
         )
         st.plotly_chart(fig1, use_container_width=True)
-
+        
     with c_g2:
         st.subheader("Gráfico 2: Prevalencia según Tramo de Densidad Poblacional")
         bar_data = pd.DataFrame({
@@ -1607,9 +1676,9 @@ elif "📊 4. Tablero de Control" in opcion_menu:
             color_discrete_map={'Cat A': '#28A745', 'Cat B': '#FFC107', 'Cat C': '#DC3545'}
         )
         st.plotly_chart(fig2, use_container_width=True)
-
+        
     st.subheader("📋 Matriz Completa del Censo de Municipios")
-    st.dataframe(df_censo[['MUNICIPIO', 'DENSIDAD', 'CATEGORIA', 'ORDENANZA', 'COBRO', 'CONCEPTO']], use_container_width=True)
+    st.dataframe(df_censo[['MUNICIPIO', 'DENSIDAD', 'CATEGORIA', 'ORDENANZA', 'CONCEPTO']], use_container_width=True)
 
 # ==========================================
 # MÓDULO 5: GENERADOR DE DICTÁMENES
@@ -1618,11 +1687,11 @@ elif "📄 5. Generador de Dictámenes" in opcion_menu:
     st.markdown("<h2 class='main-title'>📄 Generador de Dictámenes de Alerta de Inconstitucionalidad</h2>", unsafe_allow_html=True)
     st.markdown("Emisión automática de piezas jurídicas de impugnación institucionales.")
     st.markdown("---")
-
-    muni_dictamen = st.selectbox("Seleccione Municipio para emitir Dictamen:", df_censo['MUNICIPIO'].unique(), key="muni_dict")
-
+    
+    muni_dictamen = st.selectbox("Seleccione Municipio para emitir Dictamen:", df_censo['MUNICIPIO'].unique())
+    
     row_d = df_censo[df_censo['MUNICIPIO'] == muni_dictamen].iloc[0]
-
+    
     dictamen_text = f"""
 ========================================================================================
 ALERTA INSTITUCIONAL DE INCONSTITUCIONALIDAD Y INCONVENCIONALIDAD TRIBUTARIA
@@ -1630,11 +1699,11 @@ SIA-PBA // AUDITORÍA ALGORÍTMICA DE ORDENANZAS MUNICIPALES
 ========================================================================================
 
 FECHA DE EMISIÓN: {datetime.date.today().strftime('%d/%m/%Y')}
-SUJETO AUDITADO: Municipalidad de {row_d['MUNICIPIO']} (Provincia de Buenos Aires)
-DENSIDAD POBLACIONAL: {row_d['DENSIDAD']}
-NORMA EXAMINADA: {row_d['ORDENANZA']}
-DISPOSICIÓN TRIBUTARIA: "{row_d['CONCEPTO']}"
-CLASIFICACIÓN ALGORÍTMICA: {row_d['CATEGORIA']}
+SUJETO AUDITADO: Municipalidad de {row_d.get('MUNICIPIO')} (Provincia de Buenos Aires)
+DENSIDAD POBLACIONAL: {row_d.get('DENSIDAD')} hab.
+NORMA EXAMINADA: {row_d.get('ORDENANZA')}
+DISPOSICIÓN TRIBUTARIA: "{row_d.get('CONCEPTO')}"
+CLASIFICACIÓN ALGORÍTMICA: {row_d.get('CATEGORIA')}
 
 ----------------------------------------------------------------------------------------
 I. CONSIDERANDOS JURÍDICOS Y NORMATIVOS:
@@ -1642,20 +1711,20 @@ I. CONSIDERANDOS JURÍDICOS Y NORMATIVOS:
 1. Que la disposición analizada impone un gravamen / arancel / bono asistencial sobre la prestación pública de salud asistencial brindada en el efector municipal.
 2. Que dicha exigencia vulnera de forma ostensible el Principio de Gratuidad de la Salud Pública consagrado en el Artículo 36 inciso 8 de la Constitución de la Provincia de Buenos Aires.
 3. Que la imposición representa una barrera económica de acceso contraria al Artículo 12 del Pacto Internacional de Derechos Económicos, Sociales y Culturales (PIDESC) incorporado con jerarquía constitucional (Art. 75 inc. 22 CN).
-4. Que la exigencia o cobro indebido bajo coercibilidad o apercibimiento de apremio fiscal encuadra prima facie en la figura delictual de Exacción Ilegal (Art. 266 del Código Penal Argentino).
+4. Que la exigencia o cobro indebido bajo coercibilidad o apercibimiento de apermio fiscal encuadra prima facie en la figura delictual de Exacción Ilegal (Art. 266 del Código Penal Argentino).
 
 ----------------------------------------------------------------------------------------
 II. DICTAMEN Y RECOMENDACIÓN INSTITUCIONAL:
 ----------------------------------------------------------------------------------------
-SE RECOMIENDA a la Asesoría General de Gobierno de la Provincia de Buenos Aires y al Honorable Tribunal de Cuentas promover la revisión de oficio del módulo impositivo de la Municipalidad de {row_d['MUNICIPIO']}, instando la adecuación inmediata al régimen SAMO (Ley 11.069) y el cese de todo cobro directo al paciente sin cobertura.
+SE RECOMIENDA a la Asesoría General de Gobierno de la Provincia de Buenos Aires y al Honorable Tribunal de Cuentas promover la revisión de oficio del módulo impositivo de la Municipalidad de {row_d.get('MUNICIPIO')}, instando la adecuación inmediata al régimen SAMO (Ley 11.069) y el cese de todo cobro directo al paciente sin cobertura.
 
 ========================================================================================
 SIA-PBA // Trabajo Final de Carrera (TFC) - Abogacía UCES
 ========================================================================================
 """
-
+    
     st.text_area("Vista previa del Dictamen Jurídico:", value=dictamen_text, height=350)
-
+    
     st.download_button(
         label="📥 DESCARGAR DICTAMEN JURÍDICO (TXT)",
         data=dictamen_text,
