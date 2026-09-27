@@ -5,5 +5,5 @@ plotly
 pypdf
 pdf2image
 pytesseract
-Pillow
+pillow
 google-generativeai

@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import re
 import hashlib
 import datetime
+import json
 from io import BytesIO
 
 # ==========================================
@@ -67,30 +68,12 @@ st.markdown("""
         border-radius: 4px;
         font-size: 0.95rem;
     }
-    .snippet-box {
-        background-color: #FFFFFF;
-        border: 1px solid #CBD5E0;
-        border-left: 4px solid #E53E3E;
-        padding: 10px;
-        border-radius: 4px;
-        margin-bottom: 10px;
-        font-size: 0.9rem;
-    }
-    .snippet-box-a {
-        background-color: #FFFFFF;
-        border: 1px solid #CBD5E0;
-        border-left: 4px solid #38A169;
-        padding: 10px;
-        border-radius: 4px;
-        margin-bottom: 10px;
-        font-size: 0.9rem;
-    }
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# MATRIZ EMBEBIDA COMPLETA (N=135)
-# ==========================================
+# =========================================
+# CARGA Y PROCESAMIENTO DE DATOS REALES (N=135)
+# =========================================
 DATA_135 = [
   {
     "MUNICIPIO": "25 de mayo",
@@ -130,7 +113,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Almirante Brown ",
     "COBRO": "Sistema recupero SAMO",
     "CONCEPTO": "No figura en ordenanza municipal cobro a personas sin cobertura médica ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Arrecifes",
@@ -170,7 +153,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Bahia Blanca ",
     "COBRO": "Tasa por servicios asistenciales Art 254 y ss",
     "CONCEPTO": "Individualiza como contribuyente a quien recibe los servicios asistenciales ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Balcarce",
@@ -178,7 +161,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Balcarce ",
     "COBRO": "Contribución Obligatoria para la Salud Art 73",
     "CONCEPTO": "a) Contribuyentes de la Tasa por Alumbrado Público b) Contribuyentes de la Tasa por Conservación, Reparación y Mejorado de la  Red Vial c) Contribuyentes de la Tasa por Inspección de Seguridad e Higiene",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Baradero",
@@ -186,7 +169,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Baradero",
     "COBRO": "Fondo municipal de Salud  ART. 37",
     "CONCEPTO": "Valor menor $583 adicional a otras tasas",
-    "CATEGORIA": "Categoría B (Tasa Encubierta)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Beníto Juárez",
@@ -233,7 +216,7 @@ DATA_135 = [
     "DENSIDAD": "33026",
     "ORDENANZA": "Ordenanza Brandsen ",
     "COBRO": "Ausencia de concepto",
-    "CONCEPTO": "Sin concepto detallado",
+    "CONCEPTO": "Sin especificación",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
@@ -242,7 +225,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Campana ",
     "COBRO": "Tasa Aporte para la Salud Pública Art. 353. Impuesto encu",
     "CONCEPTO": "Contribuyentes propietarios de inmuebles Tasa por Servicios Generales y/o Conservación, Reparación y Mejorado de la red Vial Municipal.Establecimientos Comerciales, Industriales y/o similares Tasa por Inspección de Seguridad e Higiene ",
-    "CATEGORIA": "Categoría B (Tasa Encubierta)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Cañuelas",
@@ -330,7 +313,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Coronel Dorrego",
     "COBRO": "Sistema SAMO + Tasa servicios asistenciales Art 177",
     "CONCEPTO": "Se aclara que solo se recupera por sistema SAMO, no se cobra a personas sin cobertura sean o no residentes. ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Coronel Rosales",
@@ -338,7 +321,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Coronel Rosales 2021",
     "COBRO": "No figura ordenanza actualizada. Última año 2021",
     "CONCEPTO": "Tasa asistencial. Especifica la excepcion \"Las personas carentes de aportes de obras sociales\"",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Coronel Pringles",
@@ -346,7 +329,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Coronel Pringles ",
     "COBRO": "Tasa servicios asistenciales",
     "CONCEPTO": "Son Contribuyentes y/o responsables:a) Las personas que soliciten el servicio, ya sea el paciente, el familiar a cargo, familiar obligado a prestar alimentos, el apoderado, el curador.-",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Coronel Suárez",
@@ -354,7 +337,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Coronel Suarez",
     "COBRO": "Tasa servicios asistenciales Art. 144 y ss",
     "CONCEPTO": "Gratuidad reservada a evidente carencia de recursos. Categorización por Servicios Sociales A, B y C según % a pagar. Si no entran en esas categorías abonan el total. Art 147",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Daireaux",
@@ -442,7 +425,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza General Alvear ",
     "COBRO": "Tasa por servicios asistenciales Art. 38",
     "CONCEPTO": "No aclara contribuyente.\"(...) fíjanse para los servicios asistenciales prestados en el Hospital  Municipal “Dr. Bernardino Rivadavia” los importes determinados en el nomenclador IOMA.\"",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "General Arenales",
@@ -450,7 +433,7 @@ DATA_135 = [
     "ORDENANZA": "Última ordenanza que figura año 2023",
     "COBRO": "Tasa servicios asistenciales Art. 134 y ss",
     "CONCEPTO": "Exceptuados de pago los casos individuales que presene evidente carencia de recursos previa diagnóstico social +  ciertas prácticas como obstetricia, pediatria menor 1 año, inmunizaciones programadas, enfermedades transmisibles agudas y crónicas que el Ministerio de bienestar social asi determine  ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "General Belgrano",
@@ -466,7 +449,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza General Guido ",
     "COBRO": "Tasa de Servicio de Salud Art 21",
     "CONCEPTO": "Por cada recibo de Tasa o Derecho desde $ 5.000,00.- hasta la suma de $120.000",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "General Juan Madariaga",
@@ -474,7 +457,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Juan Madariaga ",
     "COBRO": "Tasa por servicios asistenciales Art 208 y ss",
     "CONCEPTO": "De forma explicita la ordenanza sostiene el sistema de salud público y gratuito, expone el sistema de recupero SAMO y manifie \"Cuando el paciente voluntariamente desee colaborar podrá abonar las prestaciones de acuerdo a los valores establecidos en la Ordenanza Impositiva.\"",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "General La Madrid",
@@ -490,7 +473,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza General Las Heras",
     "COBRO": "Tasa servicios asistenciales Art. 123 y ss ",
     "CONCEPTO": "Contribuyente quien obtenga el servicio, familiares, obra social o prepapaga, seguro de salud. Eximición total o parcial de pago por condicion socio económica constatada por personal o previa entre vista asistencia social",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "General Lavalle",
@@ -498,7 +481,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza General Lavalle ",
     "COBRO": "Tasa servicios asistenciales Art. 173 y ss",
     "CONCEPTO": "Excepción a las personas carentes de recursos . Excluidos los servicios de obstetricia, pediatria hasta 1 año, inmunizaciones programadas, enfermedades transmisibles agudas y crónicas que el Ministerio de Bienestar Social así determine. ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "General Paz",
@@ -506,7 +489,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza General Paz",
     "COBRO": "Residentes Tasa contributiva unidad terapia intensiva Art. 291 y ss No residentes Art. 294 y ss por todo servicio en el hospital ",
     "CONCEPTO": "Residentes urbanos tasa servicios urbanos 3usd mensual y Residentes rurales en tasa vial 8 usd bimestral. No residentes Art. 294 y ss por todo servicio en el hospital se determina el valor en UF , el valor es mayor si no poseen cobertura.  Art 297",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "General Pinto",
@@ -522,7 +505,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza General Pueyrredon",
     "COBRO": "Contribución a la Salud, la Educación y el Desarrollo Infantil Art 217 y ss",
     "CONCEPTO": "contribución fija por cada inmueble emplazado en el Partido de General Pueyrredon gravado por la Tasa por Servicios Urbanos o por la Tasa por Conservación, Reparación y Mejorado de la red vial municipal",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "General Rodríguez",
@@ -554,7 +537,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza General Villegas ",
     "COBRO": "FONDO POR SERVICIOS ASISTENCIALES Y PARA LA SALUD Art. 57 ",
     "CONCEPTO": "Artículo 57º: No aprobado, en Sesión Especial 2° del 22 de diciembre del 2025. ",
-    "CATEGORIA": "Categoría B (Tasa Encubierta)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Guamini",
@@ -570,7 +553,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Hipólito Yrigoyen",
     "COBRO": "Tasa servicios asistenciales Art. 45 y ss",
     "CONCEPTO": "No posee su ordenanza en la web, se consulto sistema SIBOM de la provincia de Buenos Aires",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Hurlingham",
@@ -642,7 +625,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Laprida ",
     "COBRO": "SAMO Art. 20",
     "CONCEPTO": "No aclara cobertura a personas sin obra social, prepaga o seguro. Si hay materiales no cubiertos por la entidad y no este cubierto por nomenclador ioma lo abonará o repondrá el paciente. ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Las Flores",
@@ -674,7 +657,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Lincoln ",
     "COBRO": "Tasa servicios asistenciales Art. 21",
     "CONCEPTO": "Se especifica valor por recorridos por km de la ambulancia y recarga tubo de oxígeno",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Lobería",
@@ -682,7 +665,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Lobería",
     "COBRO": "Tasa servicios asistenciales Art. 192 y ss",
     "CONCEPTO": "Cuando la encuesta socioecon.mica realizada por Servicio Social de la Municipalidad as. lo determine, el sistema municipal se har. cargo del costo total o la diferencia que o pudiera abonar el paciente",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Lobos",
@@ -697,7 +680,7 @@ DATA_135 = [
     "DENSIDAD": "690323",
     "ORDENANZA": "Ordenanza Lomas de Zamora",
     "COBRO": "Ausencia de concepto ",
-    "CONCEPTO": "Sin concepto detallado",
+    "CONCEPTO": "Sin especificación",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
@@ -722,7 +705,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Maipú ",
     "COBRO": "Tasa servicios asistenciales Art. 12 y ss",
     "CONCEPTO": "Necesidad hacer declaración jurada anualmente, solo residentes municipio. Se categorizan 4 categorías \"Condición de paciente\" . A) paciente con obra social , lesgilación labora. seguros, ART. B) ingresos + 317.000 sin cobertura A C) bajos recursos ingresos menos 317.000 y sin A D) bajos recursos con obra social ingresos menos a 317.000. Cobran traslados en ambulancia. Cobran a no residentes que no tengan cobertura a menos que demuestren carencia. ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Malvinas Argentinas",
@@ -730,7 +713,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Malvinas Argentinas",
     "COBRO": "Tasa servicios asistenciales Art. 192 y ss",
     "CONCEPTO": "Contribuyentes: quién lo solicite, el enfermo o los familiares. En el caso de prestarse el servicio a personas con cobertura social o con\ncobertura por seguro o autoseguro, los derechos asistenciales deberán ser abonados\npor los responsables de la cobertura, en cuyo caso, los servicios le serán facturados por\nla Secretaría de Salud.",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Mar Chiquita",
@@ -746,7 +729,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Marcos Paz",
     "COBRO": "Tasa servicios asistenciales Art. 232 y ss",
     "CONCEPTO": "Son contribuyentes de la tasa establecida en el presente título, quienes soliciten el servicio, sus familiares o los responsables de la cobertura social, o cobertura por seguro o autoseguro obra social o prepaga, coseguro de salud, sindicales, cooperativos, mutuales. Gratuidad a indigencia. ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Mercedes",
@@ -778,7 +761,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Monte Hermoso ",
     "COBRO": "SAMO + Tasa servicios asistenciales Art. 272",
     "CONCEPTO": "No cobro según condicion socioeconomica necesario informe servicio social municipal",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Moreno",
@@ -818,7 +801,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Nueve de Julio",
     "COBRO": "Tasa servicios asistenciales Art. 44",
     "CONCEPTO": "excepto sin cobertura social o no posean capacidad de pago para los cuales no regian ningun tipo de arancel. Los demás solo si hay diferencia entre cobertura y servicio se abonará la diferencia el paciente.",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Olavarría",
@@ -834,7 +817,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Patagones ",
     "COBRO": "Tasa servicios asistenciales Art. 239 y ss",
     "CONCEPTO": "Será abonada directamente por el beneficiario del servicio, en caso que el mismo no se encuentre afiliado a obra social o mutual que resulte obligada al pago y en la medida que no encuadre en alguna de las exenciones previstas. Excepciones Art. 239 quarter",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Pehuajó",
@@ -842,7 +825,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Pehuajó",
     "COBRO": "Tasa servicios asistenciales Art. 215 y ss",
     "CONCEPTO": "Contribuyentes las personas humanas usuarias del servicio o sus representantes. Son responsables sustitutos de la presente tasa aquellas personas humanas o jurídicas, públicas o privadas, que sean encargados de la cobertura social, por seguro o por autoseguro, del contribuyente ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Pellegrini",
@@ -850,7 +833,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Pellegrini ",
     "COBRO": "Sistema de recupero SAMO Art. 40 y ss",
     "CONCEPTO": "La Tasa por Servicios Asistenciales será aplicable respecto de las prestaciones médicas asistenciales (...) únicamente en aquellos casos en que los usuarios cuenten con cobertura médica a través de obra social, empresa de medicina prepaga, aseguradora de riesgos del trabajo o seguro de salud. En ningún caso corresponderá exigir pago alguno a los particulares que carezcan de cobertura médica, garantizándose para ellos la gratuidad plena en el acceso a la atención sanitaria municipal. Se clara que se aceptan donaciones que deben quedar registradas como donaciones al municipio Art. 41",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Pergamino",
@@ -865,7 +848,7 @@ DATA_135 = [
     "DENSIDAD": "4642",
     "ORDENANZA": "Sin dato",
     "COBRO": "no se encuentra normativa seguir buscando",
-    "CONCEPTO": "Sin concepto detallado",
+    "CONCEPTO": "Sin especificación",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
@@ -874,7 +857,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Pilar ",
     "COBRO": "Tasa servicios de salud Art. 263 y ss",
     "CONCEPTO": "Regimen General Art. 263 y ss individualiza como sujeto a la persona que reciba el servicio, no se cobrará la tasa a personas que: residan en pilar, tengo residencia permanenente en el país y no tengan cobertura por médico asitencial por carecer e tareas remuneradas o beneficios previsionales.  Regimen Especial Art 267 ter y ss Sistema SAMO recupero",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Pinamar",
@@ -889,7 +872,7 @@ DATA_135 = [
     "DENSIDAD": "102106",
     "ORDENANZA": "Ordenanza Presidente Perón",
     "COBRO": "Ausencia concepto",
-    "CONCEPTO": "Sin concepto detallado",
+    "CONCEPTO": "Sin especificación",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
@@ -898,7 +881,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Puan",
     "COBRO": "Tasa servicios asistenciales Art. 170 y ss ordenanza fiscal y Art. 42 y ss ordenanza impositiva ",
     "CONCEPTO": "Servicios asistenciales y servicio ambulancia. La tasa se efectiviza salvo medio convenio obras sociales, particiones oficiales/privadas. (...) se podra establecer formas de pago diferidas en aquellos casos en que los costos de las cirugías no puedan ser abonadas de contado por el paciente con la firma de un convenio y los pagares respectivos. , previa evaluacion área promocion social.  En ordenanza impositiva se determina segméntación según se tenga o no cobertura, capacidad de pago, cobertura que cubra o no los servicios , falta de la misma con posibilidad de pago o no, se incluye tablas tarifarias para todo servicio hasta  tomografias, parto y cesarea. El municipio cuenta con \"Seguro de Salud Municipal\" SEDEM , categoríza a los pacientes, reserva gratuidad a carentes de recursos. ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Punta Indio",
@@ -922,7 +905,7 @@ DATA_135 = [
     "ORDENANZA": "Código Tributario Ramallo",
     "COBRO": "Tasa servicios asistenciales Art. 238 ",
     "CONCEPTO": "Sistema SAMO + Se reserva gratuidad a situación de indigencia. Personas sin cobertura que no demuestren indigencia serán facturados según nomenclador de autogestión",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Rauch",
@@ -930,7 +913,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Rauch ",
     "COBRO": "Tasa servicios asistenciales Anexo 1 Título XV",
     "CONCEPTO": "Se establecen valores de cobro a toda práctica, figuran precios en el anexo. Oficina de Desarrollo\nSocial de la Municipalidad, debe categorizar a los pacientes en:\na) Pacientes sin cobertura social, no indigente;\nb) Pacientes sin cobertura social indigente;\nc) Pacientes con cobertura social indigente y no indigente. Se podrá determinar porcentajes de pago 25% 50% 75% o cobertura social si amerita",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Rivadavia",
@@ -946,7 +929,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza 2025 Rojas",
     "COBRO": "Cobro a obras sociales Art. 215 y ss",
     "CONCEPTO": "Se solicito ordenanza vigente, última que figura es año 2025",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Roque Pérez",
@@ -954,7 +937,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Roque Perez",
     "COBRO": "Tasa servicios asistenciales Art 33 SAMO  y Tasa por salud y seguridad fija anual por parcela urbana o hectarea",
     "CONCEPTO": "Art. 33 OJO La atención médica será gratuita salvo para aquellos pacientes que tengan cobertura\nsocial o privada. En casos de accidentes de trabajo, la ART correspondiente o en su\ndefecto el empleador, deberá hacerse cargo de los honorarios médicos y gastos\nsanatoriales que origine la atención del accidentado. Cuando la atención que deba\nbrindarse haya sido origen en accidentes de tránsito o cualquier otro accionar de\nterceros responsables, el paciente atendido cederá a favor de la Municipalidad el\nDerecho que pudiera corresponderle por obras sociales, medicina prepaga, ART o por\ncobertura de seguros de cualquier naturaleza por monto de las prestaciones recibidas.",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Saavedra Pigue",
@@ -962,7 +945,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Saavedra Pigue ",
     "COBRO": "Tasa servicios asistenciales Art. 273 y ss",
     "CONCEPTO": "Sistema SAMO + Gratuidad exclusiva para indigencia Art. 277",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Saladillo",
@@ -978,7 +961,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Salliquelo",
     "COBRO": "Tasa servicios asistenciales Art. 69 y ss + Plan de Salud Municipal",
     "CONCEPTO": "Art. 69 y ss se establecen valores para pacientes sin cobertura indigentes o pacientes adheridos al plan de salud municipal abonando 50% de ciertas prácticas.  ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Salto",
@@ -994,7 +977,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza San Andrés de Giles",
     "COBRO": "Tasa servicios asistenciales Art 247 y ss ordenanza fiscal ",
     "CONCEPTO": "Art 247 y ss ordenanza fiscal contribuyente persona que recibe los servicios , responsables solidarios, herederos y/o legatarios. Art 44 odeanzanza impsotiva aclara que para residentes del partido la atención es gratuita. ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "San Antonio de Areco",
@@ -1010,7 +993,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza San Cayetano",
     "COBRO": "Sistema SAMO",
     "CONCEPTO": "Artículo 122º.- Los servicios asistenciales que se presten en el Hospital Municipal serán gratuitos. Para el\ncaso de pacientes que tengan cobertura de obras sociales o de compañías de seguros, oficiales o privados,\nla Municipalidad ejercerá el derecho de cobro sobre la entidad de cobertura conforme los valores y\nmodalidades establecidas en las normas vigentes en cada caso.",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "San Fernando",
@@ -1018,7 +1001,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza San Fernando",
     "COBRO": "Sistema SAMO + Tasa asistencial Art. 141 y ss impuesto encub",
     "CONCEPTO": "Aclara gratuidad a residentes del partido ",
-    "CATEGORIA": "Categoría B (Tasa Encubierta)"
+    "CATEGORIA": "Categoría C (Arancel Directo)"
   },
   {
     "MUNICIPIO": "San Isidro",
@@ -1074,7 +1057,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Tandil ",
     "COBRO": "SISTEMA INTEGRADO DE SALUD PÚBLICA – ENTE DESCENTRALIZADO Art. 217 y ss",
     "CONCEPTO": "Individualiza el no cobro a \"las personas humanas en razón de las consideraciones socio económicas\" Cualquier excepción al arancel establecido, deberá\nestar justificada en base al informe del servicio social del\nestablecimiento o del servicio social de la Secretaría de\nBienestar Social y no constituirá impedimento alguno para la\ninmediata atención del paciente.",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Tapalque",
@@ -1090,7 +1073,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Tigre",
     "COBRO": "Sistema SAMO + Tasa servicios asistenciales Art 83 y ss ordenanza impositiva para no residentes del partido",
     "CONCEPTO": "Tabla tarifaria para personas no residentes en el partido. Gratuidad a personas sin cobertira médica. ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Tordillo",
@@ -1098,7 +1081,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Tordillo",
     "COBRO": "Tasa servicios asistenciales Art 28 y ss ordenanza impositiva",
     "CONCEPTO": "Abonan quienes soliciten los servicios asistenciales y tengan recursos probados. sin recursos gratuito",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Tornquist",
@@ -1106,7 +1089,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Tornquist",
     "COBRO": "Sistema SAMO + Tasa servicios asistenciales Art. 142 y ss",
     "CONCEPTO": "Podrán quedar eximidos total o parcialmente del pago de tasa quienes posean ficha socio económica otorgada por el área competente como aquellos que poseen cobertura médica (Art. 147)",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Trenque launquen",
@@ -1114,7 +1097,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Trenque Lauquen",
     "COBRO": "Sistema SAMO + Tasa servicios asistenciales Art 89 y ss",
     "CONCEPTO": "No se cobrará a los residentes del distrito sin cobertura médica",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Tres Arroyos",
@@ -1138,7 +1121,7 @@ DATA_135 = [
     "ORDENANZA": "Actualizaciones falta ordenanza solicitada",
     "COBRO": "Tasa servicios asistenciales",
     "CONCEPTO": "La Ordenanza de Salud vigente 1043/13 DEL AÑO 2013 no figura disponible web, se solicito. Las actualizaciones dan cuenta del cobro a personas sin cobertura médica según medios económicos por encuesta social",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Vicente López",
@@ -1146,7 +1129,7 @@ DATA_135 = [
     "ORDENANZA": "Ordenanza Vicente Lopez",
     "COBRO": "Sistema SAMO derechos asistenciales Art 254 y ss ordennza fiscal y Art 54 y ss ordenanza impositiva",
     "CONCEPTO": "Gratuito para personas sin cobertura ",
-    "CATEGORIA": "Categoría C (Arancel Directo)"
+    "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   },
   {
     "MUNICIPIO": "Villa Gesell",
@@ -1169,7 +1152,7 @@ DATA_135 = [
     "DENSIDAD": "132087",
     "ORDENANZA": "Ordenanza Zarate ",
     "COBRO": "Sistema SAMO Art 217 y ss",
-    "CONCEPTO": "Sin concepto detallado",
+    "CONCEPTO": "Sin especificación",
     "CATEGORIA": "Categoría A (Gratuidad / SAMO)"
   }
 ]
@@ -1177,19 +1160,17 @@ DATA_135 = [
 @st.cache_data
 def load_data():
     df = pd.DataFrame(DATA_135)
-    df['MUNICIPIO'] = df['MUNICIPIO'].astype(str).str.strip()
-    df['DENSIDAD'] = df['DENSIDAD'].astype(str)
-    df['ORDENANZA'] = df['ORDENANZA'].astype(str)
-    df['COBRO'] = df['COBRO'].astype(str)
-    df['CONCEPTO'] = df['CONCEPTO'].astype(str)
-    df['CATEGORIA'] = df['CATEGORIA'].astype(str)
+    # Garantizar nombres de columnas exactos
+    df['COBRO SERVICIO SALUD EN HOSPITAL PÚBLICO'] = df['COBRO']
+    df['CONCEPTO EN ORDENANZA'] = df['CONCEPTO']
+    df['DENSIDAD POBLACIONAL (CENSO 2022)'] = df['DENSIDAD']
     return df
 
 df_censo = load_data()
 
-# ==========================================
-# BARRA LATERAL - NAVEGACIÓN Y CONFIGURACIÓN
-# ==========================================
+# =========================================
+# BARRA LATERAL - NAVEGACIÓN Y CREDENCIALES
+# =========================================
 st.sidebar.image("https://img.icons8.com/color/96/scales.png", width=70)
 st.sidebar.title("SIA-PBA v4.0")
 st.sidebar.markdown("**Sistema Integrado de Auditoría Algorítmica y Canal Único de Denuncias**")
@@ -1207,12 +1188,25 @@ opcion_menu = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 🧠 Motor IA Gemini Pro")
-user_api_key = st.sidebar.text_input(
-    "Clave API Gemini (Google AI Studio):",
-    type="password",
-    help="Ingrese su API Key de Google AI Studio (aistudio.google.com) para activar el razonamiento superior de Gemini 1.5/2.0 Pro."
-)
+st.sidebar.subheader("🧠 Motor IA de Auditoría")
+
+api_key_input = st.sidebar.text_input("🔑 Gemini API Key (Opcional):", type="password", help="Ingrese su API Key de Google AI Studio para activar el razonamiento superior de Gemini Pro.")
+
+# Obtener clave API de forma segura
+gemini_key = ""
+if api_key_input.strip():
+    gemini_key = api_key_input.strip()
+else:
+    try:
+        if "GEMINI_API_KEY" in st.secrets:
+            gemini_key = st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        gemini_key = ""
+
+if gemini_key:
+    st.sidebar.success("✅ **Motor Gemini Pro Activo**")
+else:
+    st.sidebar.info("ℹ️ **Motor Local NPL Activo** (Ingrese API Key para activar Gemini Pro)")
 
 st.sidebar.markdown("---")
 st.sidebar.info("""
@@ -1222,9 +1216,180 @@ st.sidebar.info("""
 * **Enfoque:** Capítulo VIII - Propuesta de Innovación Tecnológica y Control de Convencionalidad
 """)
 
-# ==========================================
+# =========================================
+# FUNCIONES DE AUDITORÍA Y ANÁLISIS LOCAL
+# =========================================
+def evaluar_articulo_local(art_num, art_text):
+    art_upper = art_text.upper()
+    
+    health_keywords = [
+        'HOSPITAL', 'ASISTENCIAL', 'SALUD', 'SANATORIAL', 'CAPS', 
+        'CENTRO DE SALUD', 'UNIDAD SANITARIA', 'PACIENTE', 'INTERNACIÓN', 
+        'INTERNACION', 'ENFERMO', 'MÉDICO', 'MEDICA', 'AMBULANCIA', 
+        'NOMENCLADOR', 'SAMO', 'IOMA', 'GUARDIA'
+    ]
+    
+    # 1. Filtro estricto de contexto sanitario
+    if not any(hk in art_upper for hk in health_keywords):
+        return ('NON_HEALTH', 'Materia impositiva o administrativa ajena a la atención médica hospitalaria.')
+        
+    # 2. Descarte de falsos positivos comerciales/técnicos/administrativos
+    if ('MUESTREO' in art_upper or 'ALIMENTICIOS' in art_upper or 'BROMATOLÓG' in art_upper or 'BROMATOLOG' in art_upper or 'APTO PARA CONSUMO' in art_upper or 'MERCADERÍA' in art_upper) and not ('PACIENTE' in art_upper or 'INTERNADO' in art_upper):
+        return ('NON_HEALTH', 'Tasa por inspección bromatológica de alimentos comerciales.')
+        
+    if ('TRAMITACIÓN DE ASUNTOS' in art_upper or 'EXPEDICIÓN, VISADO DE CERTIFICADOS' in art_upper or 'INTERESES PARTICULARES' in art_upper or 'OFICIOS JUDICIALES' in art_upper) and not ('HISTORIA CLÍNICA' in art_upper or 'CERTIFICADO MÉDICO' in art_upper):
+        return ('NON_HEALTH', 'Derecho administrativo por sellados u oficios generales.')
+        
+    if ('RIFAS' in art_upper or 'BONOS CONTRIBUCIÓN' in art_upper or 'BONOS CONTRIBUCION' in art_upper) and ('COOPERADORA' in art_upper or 'ORGANIZADOR' in art_upper):
+        return ('NON_HEALTH', 'Tributo sobre rifas/espectáculos con exención a cooperadoras hospitalarias.')
+
+    if ('PALA MECÁNICA' in art_upper or 'MOTONIVELADORA' in art_upper or 'MOTOSIERRA' in art_upper or 'LIMPIEZA DE PREDIOS' in art_upper or 'EQUIPOS VIALES' in art_upper or 'ESCOMBROS' in art_upper or 'PODAS' in art_upper):
+        return ('NON_HEALTH', 'Servicios viales, mantenimiento de predios o limpieza urbana general.')
+
+    if ('AGUA POTABLE' in art_upper or 'RED DE CLOACAS' in art_upper or 'POZOS CEGOS' in art_upper or 'DESOBSTRUCCIÓN' in art_upper) and not ('HOSPITAL' in art_upper or 'ASISTENCIAL' in art_upper):
+        return ('NON_HEALTH', 'Servicios de agua, saneamiento o desatascado de pozos.')
+
+    # 3. Regla de salvaguarda y exención explícita a favor de la salud pública (Cat A)
+    has_salvaguarda = (
+        'EXCEPTO LOS SERVICIOS ASISTENCIALES' in art_upper or
+        'EXCEPTUADOS LOS SERVICIOS ASISTENCIALES' in art_upper or
+        'GRATUITO PARA PERSONAS SIN COBERTURA' in art_upper or
+        'GRATUITOS PARA LAS PERSONAS SIN COBERTURA' in art_upper or
+        'SIN COBERTURA MÉDICA SERÁN GRATUITOS' in art_upper or
+        'EXCLUSIVAMENTE A LAS OBRAS SOCIALES' in art_upper or
+        'SISTEMA SAMO' in art_upper
+    )
+    if has_salvaguarda and not ('PAGARÉ' in art_upper or 'INDIGENCIA' in art_upper or 'POBREZA' in art_upper):
+        return ('CAT_A', 'Conformidad Normativa: Garantía expresa de gratuidad para personas sin cobertura y/o recupero legítimo vía SAMO (Ley 11.069).')
+
+    # 4. Triple Validación para Categoría C (Arancel Directo)
+    sujeto_c = any(s in art_upper for s in ['PACIENTE', 'INTERNADO', 'USUARIO', 'SOLICITANTE', 'SOLICITE EL SERVICIO', 'ENFERMO', 'BENEFICIARIO'])
+    objeto_c = any(o in art_upper for o in ['HOSPITAL', 'CAPS', 'GUARDIA', 'INTERNACIÓN', 'INTERNACION', 'PRACTICA MEDICA', 'PRÁCTICA MÉDICA', 'AMBULANCIA', 'SERVICIOS ASISTENCIALES', 'LABORATORIO', 'CONSULTA'])
+    mecanismo_c = any(m in art_upper for m in ['ARANCEL', 'ABONARÁ', 'ABONARA', 'TASA ASISTENCIAL', 'DERECHOS ASISTENCIALES', 'NOMENCLADOR', 'BONO', 'PAGARÉ', 'APREMIO', 'CARENCIA', 'INDIGENCIA', 'ENCUESTA SOCIAL', 'INFORME SOCIAL'])
+
+    if (sujeto_c or 'SERVICIOS ASISTENCIALES' in art_upper) and (objeto_c or 'HOSPITAL' in art_upper) and mecanismo_c:
+        return ('CAT_C', 'Cláusula de arancelamiento directo al paciente o exigencia de fe de indigencia/pobreza para acceder a la salud pública.')
+
+    # 5. Categoría B (Tasa Encubierta)
+    is_tasa_encubierta = any(tb in art_upper for tb in [
+        'CONTRIBUCIÓN AL SISTEMA DE SALUD', 'FONDO DE SALUD', 'FONDO ESPECIAL DE SALUD',
+        'TASA DE SALUD', 'TASA POR SALUD', 'APORTE PARA LA SALUD', 'IMPUESTO ENCUBIERTO',
+        'FONDO COMPLEMENTARIO DE SALUD', 'FONDO SOLIDARIO DE SALUD'
+    ])
+    if is_tasa_encubierta:
+        return ('CAT_B', 'Tasa encubierta / Fondo especial de salud adicionado sobre tributos o tasas impositivas generales.')
+
+    return ('NON_HEALTH', 'Materia impositiva o administrativa ajena a la atención médica hospitalaria.')
+
+def auditar_documento_local(texto):
+    articulos_raw = re.split(r'\n(?=(?:ARTICULO|ARTÍCULO|ART\.)\s*\d+)', texto)
+    if len(articulos_raw) <= 1:
+        articulos_raw = re.split(r'(?=(?:ARTICULO|ARTÍCULO|ART\.)\s*\d+)', texto)
+
+    arts_c = []
+    arts_b = []
+    arts_a = []
+
+    for idx, art_text in enumerate(articulos_raw):
+        match_num = re.search(r'(ARTICULO|ARTÍCULO|ART\.)\s*(\d+[º°°]?)', art_text, re.IGNORECASE)
+        art_num = match_num.group(0) if match_num else f"Artículo {idx+1}"
+        
+        cat_art, obs = evaluar_articulo_local(art_num, art_text)
+        
+        snippet = art_text.strip()[:300].replace('\n', ' ')
+        if len(art_text.strip()) > 300:
+            snippet += "..."
+
+        if cat_art == 'CAT_C':
+            arts_c.append({'num': art_num, 'texto': snippet, 'obs': obs})
+        elif cat_art == 'CAT_B':
+            arts_b.append({'num': art_num, 'texto': snippet, 'obs': obs})
+        elif cat_art == 'CAT_A':
+            arts_a.append({'num': art_num, 'texto': snippet, 'obs': obs})
+
+    if len(arts_c) > 0:
+        cat_global = "Categoría C (Arancel Directo)"
+    elif len(arts_b) > 0:
+        cat_global = "Categoría B (Tasa Encubierta)"
+    else:
+        cat_global = "Categoría A (Gratuidad / SAMO)"
+
+    return {
+        'cat_global': cat_global,
+        'arts_c': arts_c,
+        'arts_b': arts_b,
+        'arts_a': arts_a
+    }
+
+def auditar_con_gemini_pro(texto_doc, key):
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=key)
+        
+        models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-pro']
+        selected_model = None
+        
+        for m_name in models_to_try:
+            try:
+                m = genai.GenerativeModel(m_name)
+                res_test = m.generate_content("Ping")
+                if res_test and res_test.text:
+                    selected_model = m
+                    break
+            except Exception:
+                continue
+
+        if not selected_model:
+            return None
+
+        prompt_system = """Eres SIA-PBA, un Auditor Algorítmico Jurídico experto en Derecho Constitucional, Tributario y Sanitario de la Provincia de Buenos Aires (TFC Abogacía UCES).
+Tu función es auditar el texto de la Ordenanza Municipal adjunta para determinar la presencia de cláusulas tributario-sanitarias y clasificarlas de forma ESTRICTA en una de las tres categorías de la Tesis:
+
+1. Categoría A (Gratuidad / SAMO):
+   - Garantiza la gratuidad hospitalaria/CAPS para personas sin cobertura médica (Cumplimiento Art. 36 inc. 8 CPBA).
+   - O limita el cobro exclusivamente a Obras Sociales, Prepagas, ART o Seguros de Salud mediante el sistema SAMO (Ley Provincial 11.069).
+   - O contiene salvedades explícitas ("excepto los servicios asistenciales de salud").
+
+2. Categoría B (Tasa Encubierta):
+   - Adiciona alícuotas o "fondos de salud" sobre tributos domiciliarios o generales (ABL, Red Vial, Inmuebles, Seguridad e Higiene, Comercio, Multas) para financiar gastos generales de salud pública.
+
+3. Categoría C (Arancel Directo):
+   - Impone aranceles, bonos de guardia, pagarés o tarifas por nomenclador sobre el PACIENTE/PERSONA sin cobertura en el hospital municipal o CAPS.
+   - O condiciona la gratuidad a la demostración de indigencia/pobreza mediante encuestas o informes de asistentes sociales.
+
+REGLAS STRICTAS ANTI-FALSOS POSITIVOS:
+- NO clasifiques como norma de salud artículos sobre:
+  * Bromatología, muestreos físicos/químicos de alimentos comerciales o decomisos.
+  * Derechos de oficina, sellados administrativos, expedición de certificados comerciales.
+  * Rifas, bonos contribución o espectáculos organizados por entidades privadas (aunque eximan a cooperadoras hospitalarias).
+  * Limpieza de predios, uso de palas mecánicas, motoniveladoras o maquinaria vial.
+  * Servicios sanitarios de red (cloacas, agua potable, desobstrucción de pozos).
+  * Inhumaciones o cementerio.
+
+Devuelve tu respuesta estructurada exactamente con este formato en Markdown:
+
+### 📊 CATEGORÍA GLOBAL: [Categoría A (Gratuidad / SAMO) | Categoría B (Tasa Encubierta) | Categoría C (Arancel Directo)]
+
+#### ⚖️ Dictamen y Fundamentación Jurídica:
+[Breve párrafo sintético fundamentando el dictamen según la Constitución de la Provincia de Buenos Aires]
+
+#### 📜 Artículos Sanitarios Identificados:
+* **[Número de Artículo]** - [Cita Textual del Artículo]
+  * **Categoría:** [Cat. A / Cat. B / Cat. C]
+  * **Observación Técnica:** [Explicación técnica del artículo]
+"""
+
+        texto_fragment = texto_doc[:30000]
+        response = selected_model.generate_content(prompt_system + "\n\nTEXTO DE LA ORDENANZA A AUDITAR:\n" + texto_fragment)
+        if response and response.text:
+            return response.text
+        return None
+    except Exception:
+        return None
+
+# =========================================
 # MÓDULO 1: PRESENTACIÓN E IMPACTO TFC
-# ==========================================
+# =========================================
 if "🏠 1. Presentación" in opcion_menu:
     st.markdown("<h1 class='main-title'>SIA-PBA: Auditoría Algorítmica & Canal Único de Denuncias</h1>", unsafe_allow_html=True)
     st.markdown("<p class='sub-title'>Herramienta tecnológica de control preventivo de legalidad, constitucionalidad y convencionalidad de ordenanzas fiscales e impositivas municipales de la Provincia de Buenos Aires</p>", unsafe_allow_html=True)
@@ -1249,11 +1414,11 @@ if "🏠 1. Presentación" in opcion_menu:
     with c1:
         st.markdown("""
         ### 🔍 1. Módulo de Auditoría Algorítmica de Ordenanzas
-        * **Análisis de Texto PNL e IA (Gemini Pro):** Procesa automáticamente ordenanzas impositivas y fiscales locales.
+        * **Análisis de Texto NPL & IA:** Procesa automáticamente ordenanzas impositivas y fiscales locales (Digitales y Escaneadas por OCR).
         * **Semáforo Tripartito de Convencionalidad:**
-            * 🟢 **Cat. A (Gratuidad Plena / SAMO):** Cumplimiento del Art. 36 inc. 8 CPBA y Ley 11.069.
+            * 🟢 **Cat. A (Gratuidad Plena / SAMO):** Cumplimiento del Art. 36 inc. 8 CPBA.
             * 🟡 **Cat. B (Tasas Encubiertas):** Detección de tributos disfrazados en ABL/Red Vial.
-            * 🔴 **Cat. C (Arancelamiento Directo):** Alerta por cobros indebidos, pagarés o apremios.
+            * 🔴 **Cat. C (Arancelamiento Directo):** Alerta por cobros indebidos, pagarés o juicio de apremio.
         * **Matriz de Alerta Preventiva:** Cita automática de normas vulneradas y encuadre penal (Art. 266 CP - Exacciones Ilegales).
         """)
     with c2:
@@ -1264,15 +1429,15 @@ if "🏠 1. Presentación" in opcion_menu:
         * **Trazabilidad Institucional:** Derivación automática de alertas a la Defensoría del Pueblo PBA y Asesoría General de Gobierno.
         """)
 
-# ==========================================
+# =========================================
 # MÓDULO 2: AUDITORÍA ALGORÍTMICA DE ORDENANZAS (IA)
-# ==========================================
+# =========================================
 elif "🔍 2. Módulo de Auditoría" in opcion_menu:
     st.markdown("<h2 class='main-title'>🔍 Auditoría Algorítmica Preventiva de Ordenanzas</h2>", unsafe_allow_html=True)
     st.markdown("Examen automatizado de constitucionalidad, convencionalidad y legalidad tributaria municipal.")
     st.markdown("---")
     
-    tab1, tab2 = st.tabs(["🏛️ Auditoría por Municipio (Censo N=135)", "📝 Auditoría Futura (PDF / Ordenanza 2027+)"])
+    tab1, tab2 = st.tabs(["🏛️ Auditoría por Municipio (Censo N=135)", "📝 Análisis de Texto / Ordenanza Personalizada"])
     
     with tab1:
         st.markdown("##### Seleccione un municipio para auditar su normativa tributario-sanitaria:")
@@ -1296,14 +1461,14 @@ elif "🔍 2. Módulo de Auditoría" in opcion_menu:
                 st.success("🟢 **DICTAMEN: CONFORME A DERECHO / GRATUIDAD PLENA**")
                 st.markdown("<span class='badge-cat-a'>Categoría A - Gratuidad Plena</span>", unsafe_allow_html=True)
                 
-            st.write(f"**Municipio:** {row_muni.get('MUNICIPIO', 'Desconocido')}")
-            st.write(f"**Densidad Poblacional:** {row_muni.get('DENSIDAD', 'Sin dato')}")
+            st.write(f"**Municipio:** {row_muni.get('MUNICIPIO', muni_selected)}")
+            st.write(f"**Densidad Poblacional:** {row_muni.get('DENSIDAD', 'No especificado')}")
             st.write(f"**Norma Relevada:** {row_muni.get('ORDENANZA', 'Ordenanza Municipal')}")
             
         with col_res2:
             st.markdown("#### ⚖️ Fundamentación Jurídica de Alerta")
-            m_concepto = str(row_muni.get('CONCEPTO', 'Sin concepto detallado'))
-            st.markdown(f"**Disposición Local Relevada:** *'{m_concepto}'*")
+            concepto_val = str(row_muni.get('CONCEPTO', 'Sin especificación'))
+            st.markdown(f"**Disposición Local Relevada:** *'{concepto_val}'*")
             
             if 'Categoría C' in cat or 'Arancel' in cat or 'Cat. C' in cat:
                 st.markdown("""
@@ -1332,33 +1497,26 @@ elif "🔍 2. Módulo de Auditoría" in opcion_menu:
                 """, unsafe_allow_html=True)
 
     with tab2:
-        st.markdown("### 📋 Motor de Auditoría Algorítmica Futura (Ejercicios 2027+)")
-        st.markdown("Suba una Ordenanza Fiscal/Impositiva (PDF Digital o Escaneado por OCR) para ejecutar el diagnóstico automatizado:")
+        st.markdown("##### Cargue un archivo PDF (Digital o Escaneado) o pegue el texto de la Ordenanza para auditar:")
         
-        col_a1, col_a2 = st.columns([1, 1])
-        with col_a1:
-            muni_futuro = st.selectbox("Seleccione Municipio emisor de la Ordenanza:", df_censo['MUNICIPIO'].unique(), key="muni_fut")
-            row_fut = df_censo[df_censo['MUNICIPIO'] == muni_futuro].iloc[0]
-            cat_fut = str(row_fut.get('CATEGORIA', 'Sin datos'))
-            con_fut = str(row_fut.get('CONCEPTO', 'Sin datos'))
-            st.info(f"**Línea de Base Censo 2026 ({muni_futuro}):** {cat_fut} | Disposición: {con_fut}")
-            
-        with col_a2:
-            uploaded_pdf = st.file_uploader("Adjuntar archivo PDF de la Ordenanza Fiscal e Impositiva:", type=['pdf'])
-            
-        texto_suplementario = st.text_area(
-            "Editor de Texto Suplementario (Opcional - para fragmentos copiados):",
-            value="",
-            height=100,
-            placeholder="Si no adjunta un PDF, puede pegar aquí el articulado..."
-        )
+        muni_futuro = st.selectbox("Seleccione el Municipio emisor del documento:", df_censo['MUNICIPIO'].unique(), key="muni_fut")
         
-        if st.button("🚀 EJECUTAR AUDITORÍA CONTEXTUAL E IA"):
+        row_fut = df_censo[df_censo['MUNICIPIO'] == muni_futuro].iloc[0]
+        cat_fut = str(row_fut.get('CATEGORIA', 'Sin datos'))
+        st.info(f"🧠 **Línea de Base Censo 2026 ({muni_futuro}):** {cat_fut} | *{row_fut.get('COBRO', '')}*")
+        
+        col_up1, col_up2 = st.columns(2)
+        with col_up1:
+            uploaded_pdf = st.file_uploader("Subir Ordenanza Fiscal/Impositiva en PDF:", type=['pdf'])
+        with col_up2:
+            texto_suplementario = st.text_area("O pegue texto de la Ordenanza:", height=100, placeholder="Artículo 1... Por los servicios asistenciales...")
+
+        if st.button("🚀 Ejecutar Auditoría por Inteligencia Artificial"):
             texto_a_analizar = ""
             fuente_doc = ""
             
             if uploaded_pdf is not None:
-                with st.spinner("⏳ Leyendo documento PDF..."):
+                with st.spinner("⏳ Leyendo archivo PDF..."):
                     try:
                         import pypdf
                         pdf_reader = pypdf.PdfReader(BytesIO(uploaded_pdf.read()))
@@ -1373,175 +1531,95 @@ elif "🔍 2. Módulo de Auditoría" in opcion_menu:
                         texto_a_analizar = ""
                         
                     if len(texto_a_analizar.strip()) < 50:
-                        with st.spinner("🔍 PDF sin capa de texto. Activando motor OCR de Visión Artificial (Tesseract)..."):
+                        with st.spinner("🔍 Activando motor OCR de Visión Artificial para PDF Escaneado / Fotocopia..."):
                             try:
                                 from pdf2image import convert_from_bytes
                                 import pytesseract
-                                uploaded_pdf.seek(0)
-                                images = convert_from_bytes(uploaded_pdf.read(), first_page=1, last_page=15)
+                                images = convert_from_bytes(uploaded_pdf.getvalue())
                                 ocr_pages = []
                                 for img in images:
-                                    ocr_pages.append(pytesseract.image_to_string(img, lang='spa'))
+                                    t_ocr = pytesseract.image_to_string(img, lang='spa')
+                                    if t_ocr:
+                                        ocr_pages.append(t_ocr)
                                 texto_a_analizar = "\n".join(ocr_pages)
-                                fuente_doc = f"PDF Escaneado (Procesado con OCR Visión Artificial - {len(images)} págs)"
+                                fuente_doc = f"PDF Escaneado (Procesado por OCR Visión Artificial - {len(images)} páginas)"
                             except Exception as e_ocr:
-                                st.warning(f"Aviso OCR: {str(e_ocr)}")
-                                
+                                st.warning(f"⚠️ No se pudo procesar OCR: {str(e_ocr)}")
+
             if not texto_a_analizar.strip() and texto_suplementario.strip():
                 texto_a_analizar = texto_suplementario
-                fuente_doc = "Texto Ingresado en Editor Suplementario"
+                fuente_doc = "Texto Ingresado en Editor Directo"
             elif texto_a_analizar.strip() and texto_suplementario.strip():
                 texto_a_analizar += "\n" + texto_suplementario
                 fuente_doc += " + Texto Suplementario"
-                
+
             if not texto_a_analizar.strip():
-                st.error("❌ **ERROR DE PROCESAMIENTO:** No se ingresó ningún archivo PDF ni texto en el editor para auditar.")
+                st.error("❌ **ERROR DE PROCESAMIENTO:** No se ingresó ningún archivo PDF ni texto para auditar.")
             else:
-                st.success(f"✅ **Documento Cargado con Éxito:** {fuente_doc}")
+                st.success(f"✅ **Documento Procesado con Éxito:** {fuente_doc}")
                 st.markdown("---")
                 
-                # INTENTO DE LLAMADA A GEMINI PRO CON CADENA DE MODELOS COMPATIBLES
-                api_key_to_use = user_api_key.strip()
-                if not api_key_to_use:
-                    try:
-                        api_key_to_use = st.secrets.get("GEMINI_API_KEY", "")
-                    except Exception:
-                        api_key_to_use = ""
+                res_gemini = None
+                if gemini_key:
+                    with st.spinner("🧠 Razonando auditoría jurídica con Gemini Pro IA..."):
+                        res_gemini = auditar_con_gemini_pro(texto_a_analizar, gemini_key)
+
+                if res_gemini:
+                    st.markdown("### 🧠 Dictamen de Auditoría Algorítmica con Inteligencia Artificial (Gemini Pro)")
+                    st.markdown(res_gemini)
+                else:
+                    if gemini_key:
+                        st.caption("ℹ️ *Se ejecutó el motor local de resguardo NPL.*")
                         
-                gemini_exito = False
-                
-                if api_key_to_use:
-                    with st.spinner("🧠 Ejecutando Razonamiento IA Superior con Gemini Pro..."):
-                        try:
-                            import google.generativeai as genai
-                            genai.configure(api_key=api_key_to_use)
-                            
-                            models_to_try = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-pro']
-                            response_text = ""
-                            model_used_name = ""
-                            
-                            prompt_gemini = f"""Eres SIA-PBA, un Auditor Algorítmico Jurídico de la Provincia de Buenos Aires (TFC Abogacía UCES).
-Tu tarea es auditar el texto de la siguiente Ordenanza Municipal ({muni_futuro}) y determinar si contiene cláusulas inconstitucionales en salud.
-
-REGLAS DE EVALUACIÓN JURÍDICA:
-1. CATEGORÍA C (Arancel Directo / Inconstitucional): Si el texto impone cobro directo, arancel, bono de guardia, pagaré, o exige encuesta social / certificado de indigencia a personas sin cobertura en hospitales o centros de salud.
-2. CATEGORÍA B (Tasa Encubierta): Si impone fondos especiales o adicionales de salud adosados sobre tributos de ABL, Red Vial, Comercio o Multas.
-3. CATEGORÍA A (Gratuidad / Conforme a Derecho): Si consagra la gratuidad de la atención hospitalaria para personas sin cobertura o restringe el recupero únicamente a Obras Sociales / Prepagas vía SAMO (Ley 11.069).
-4. DESCARTE DE FALSOS POSITIVOS: Ignora impuestos de comercio, seguridad e higiene, bromatología, escombros, maquinaria vial, rifas de cooperadoras o tasas generales que NO sean cobros asistenciales de salud a pacientes.
-
-MUNICIPIO AUDITADO: {muni_futuro}
-LÍNEA DE BASE CENSO 2026: {cat_fut} - {con_fut}
-
-TEXTO DE LA ORDENANZA A AUDITAR:
-\"\"\"{texto_a_analizar[:30000]}\"\"\"
-
-POR FAVOR RESPONDE CON EL SIGUIENTE FORMATO EXACTO EN MARKDOWN:
-### 📋 Dictamen de Auditoría Algorítmico IA - {muni_futuro}
-**MODELO IA:** [Nombre del Modelo]
-**CLASIFICACIÓN:** [CATEGORÍA A / CATEGORÍA B / CATEGORÍA C]
-
-**DICTAMEN:** [Escribe un resumen ejecutivo del dictamen]
-
-**ARTÍCULOS INFRACTORES O DE RESGUARDO DETECTADOS:**
-* **[Número de Artículo]**: "[Transcripción textual limpia del artículo de la ordenanza]"
-  * *Observación Técnica:* [Explicación jurídica de por qué pertenece a esa categoría]
-"""
-                            for m_name in models_to_try:
-                                try:
-                                    m_inst = genai.GenerativeModel(m_name)
-                                    res = m_inst.generate_content(prompt_gemini)
-                                    if res and res.text:
-                                        response_text = res.text
-                                        model_used_name = m_name
-                                        break
-                                except Exception:
-                                    continue
-                                    
-                            if response_text:
-                                response_text = response_text.replace("[Nombre del Modelo]", model_used_name)
-                                st.markdown(response_text)
-                                gemini_exito = True
-                        except Exception as e_gen:
-                            st.warning(f"⚠️ Nota de conexión Gemini API ({str(e_gen)}). Ejecutando motor contextual local de resguardo...")
-                            gemini_exito = False
-                            
-                if not gemini_exito:
-                    # MOTOR CONTEXTUAL LOCAL DE RESGUARDO (CERO FALSOS POSITIVOS)
-                    st.markdown(f"### 📋 Dictamen de Auditoría Algorítmica - {muni_futuro} (Ejercicio 2027+)")
-                    
-                    lineas = texto_a_analizar.split("\n")
-                    articulos_dict = []
-                    art_actual = ""
-                    num_art = "Art. General"
-                    
-                    for line in lineas:
-                        if re.match(r'^(ARTICULO|ARTÍCULO|ART\.?)\s*(\d+)', line.strip(), re.IGNORECASE):
-                            if art_actual.strip():
-                                articulos_dict.append((num_art, art_actual.strip()))
-                            art_actual = line
-                            m = re.match(r'^(ARTICULO|ARTÍCULO|ART\.?)\s*(\d+)', line.strip(), re.IGNORECASE)
-                            num_art = f"Art. {m.group(2)}" if m else "Art. General"
+                    with st.spinner("🔍 Realizando examen algorítmico local de legalidad tributario-sanitaria..."):
+                        res_local = auditar_documento_local(texto_a_analizar)
+                        
+                        st.markdown(f"### 📋 Dictamen de Auditoría Algorítmica Local - {muni_futuro}")
+                        
+                        cat_g = res_local['cat_global']
+                        if 'Categoría C' in cat_g:
+                            st.error("🔴 **ALERTA CRÍTICA: DETECCIÓN DE CLÁUSULAS INCONSTITUCIONALES / CATEGORÍA C**")
+                            st.markdown(f"**Categoría C - Arancel Directo / Barrera Económica**\n\n*Comparativa frente al Censo Base 2026:* El municipio {muni_futuro} mantiene o reintroduce normas de arancelamiento directo.")
+                        elif 'Categoría B' in cat_g:
+                            st.warning("🟡 **ADVERTENCIA: DETECCIÓN DE TASA ENCUBIERTA / CATEGORÍA B**")
+                            st.markdown(f"**Categoría B - Tasa Encubierta / Tributo Disfrazado**\n\n*Comparativa frente al Censo Base 2026:* Se detectó la adición de fondos/alícuotas de salud sobre tasas generales.")
                         else:
-                            art_actual += " " + line
-                    if art_actual.strip():
-                        articulos_dict.append((num_art, art_actual.strip()))
+                            st.success("🟢 **CONFORMIDAD NORMATIVA: COMPATIBLE CON CPBA / CATEGORÍA A**")
+                            st.markdown(f"**Categoría A - Gratuidad Plena / SAMO**\n\n*Comparativa frente al Censo Base 2026:* El municipio {muni_futuro} respeta el principio de gratuidad asistencial.")
+
+                        st.markdown("#### 📜 Artículos Sanitarios Identificados en la Salud Pública:")
                         
-                    if not articulos_dict:
-                        articulos_dict = [("Párrafo", p.strip()) for p in texto_a_analizar.split("\n\n") if len(p.strip()) > 30]
-                        
-                    arts_c = []
-                    arts_b = []
-                    arts_a = []
-                    
-                    for art_num, art_txt in articulos_dict:
-                        txt_up = art_txt.upper()
-                        
-                        # DESCARTES EXPLÍCITOS DE FALSOS POSITIVOS
-                        if any(w in txt_up for w in ['RIFA', 'BARRIDO', 'PALA MECÁNICA', 'MOTONIVELADORA', 'PODAS', 'ESCOMBROS', 'CEMETERY', 'CEMENTERIO', 'PUBLICIDAD', 'HABILITACION', 'BROMATOLOGÍA', 'BROMATOLOGIA', 'AGUA POTABLE', 'SEGUROS DE VIDA']):
-                            if 'HOSPITAL' not in txt_up and 'ASISTENCIAL' not in txt_up:
-                                continue
+                        found_any = False
+                        if len(res_local['arts_c']) > 0:
+                            found_any = True
+                            st.markdown("##### 🔴 Artículos con Arancelamiento / Barreras Económicas (Categoría C):")
+                            for a in res_local['arts_c']:
+                                st.write(f"⚠️ **Cita Textual {a['num']}:**")
+                                st.code(a['texto'], language='text')
+                                st.caption(f"**Observación Técnica:** {a['obs']}")
                                 
-                        # REGLA DE SALVAGUARDA
-                        if 'EXCEPTO LOS SERVICIOS ASISTENCIALES' in txt_up or 'QUEDAN EXIMIDOS LOS EFECTORES' in txt_up:
-                            arts_a.append((art_num, art_txt, "Conformidad Normativa: Exclusión explícita a favor del servicio asistencial de salud."))
-                            continue
-                            
-                        # EVALUACIÓN SALUD
-                        es_salud = any(w in txt_up for w in ['HOSPITAL', 'SALUD', 'ASISTENCIAL', 'PACIENTE', 'GUARDIA', 'MEDICO', 'MÉDICO', 'SICK', 'SAMO', 'IOMA', 'INTERNACIÓN', 'LABORATORIO'])
-                        
-                        if es_salud:
-                            if any(w in txt_up for w in ['ARANCEL', 'BONO', 'PAGARÉ', 'PAGARE', 'INDIGENCIA', 'CARENCIA DE RECURSOS', 'ENCUESTA SOCIAL', 'INFORMACIÓN SUMARIA', 'ASISTENTE SOCIAL', 'APREMIO']):
-                                if 'SAMO' not in txt_up and 'OBRAS SOCIALES' not in txt_up:
-                                    arts_c.append((art_num, art_txt, "Cláusula de arancelamiento directo al paciente o exigencia de acreditación de pobreza/indigencia."))
-                                else:
-                                    arts_a.append((art_num, art_txt, "Conformidad Normativa: Mención de arancel/recupero limitado a Obras Sociales o Prepagas (Ley 11.069)."))
-                            elif any(w in txt_up for w in ['FONDO ESPECIAL DE SALUD', 'TASA DE SALUD', 'CONTRIBUCIÓN PARA LA SALUD', 'SISTEMA INTEGRADO DE SALUD']) and any(w in txt_up for w in ['ALUMBRADO', 'RED VIAL', 'URBANOS', 'PREDIO', 'ABL']):
-                                arts_b.append((art_num, art_txt, "Tasa encubierta / Fondo especial de salud adosado sobre tributos generales."))
-                            elif 'GRATUITO' in txt_up or 'SAMO' in txt_up or 'SIN COBERTURA' in txt_up or 'SIN CARGO' in txt_up:
-                                arts_a.append((art_num, art_txt, "Conformidad Normativa: Garantía expresa de gratuidad hospitalaria y recupero vía SAMO."))
+                        if len(res_local['arts_b']) > 0:
+                            found_any = True
+                            st.markdown("##### 🟡 Artículos con Tasas Encubiertas / Fondos Especiales (Categoría B):")
+                            for a in res_local['arts_b']:
+                                st.write(f"⚠️ **Cita Textual {a['num']}:**")
+                                st.code(a['texto'], language='text')
+                                st.caption(f"**Observación Técnica:** {a['obs']}")
 
-                    if len(arts_c) > 0:
-                        st.error("🔴 **ALERTA CRÍTICA: DETECCIÓN DE CLÁUSULAS INCONSTITUCIONALES / CATEGORÍA C**")
-                        st.markdown(f"**Comparativa frente al Censo Base 2026:** El municipio {muni_futuro} mantiene o reintroduce normas de arancelamiento directo.")
-                        st.markdown("#### 📜 Artículos Infractores Detectados:")
-                        for num_a, txt_a, obs_a in arts_c:
-                            st.markdown(f"<div class='snippet-box'><b>⚠️ Cita Textual {num_a}:</b><br><i>'{txt_a[:400]}...'</i><br><br><b>Observación Técnica:</b> {obs_a}</div>", unsafe_allow_html=True)
-                    elif len(arts_b) > 0:
-                        st.warning("🟡 **ADVERTENCIA: DETECCIÓN DE TASA ENCUBIERTA / CATEGORÍA B**")
-                        st.markdown("#### 📜 Artículos con Tasas Encubiertas Detectados:")
-                        for num_a, txt_a, obs_a in arts_b:
-                            st.markdown(f"<div class='snippet-box'><b>⚠️ Cita Textual {num_a}:</b><br><i>'{txt_a[:400]}...'</i><br><br><b>Observación Técnica:</b> {obs_a}</div>", unsafe_allow_html=True)
-                    else:
-                        st.success("🟢 **DICTAMEN POSITIVO: NORMATIVA CONFORME A DERECHO / CATEGORÍA A**")
-                        st.markdown(f"**Compatibilidad Constatada:** La norma analizada para **{muni_futuro}** respeta el principio de gratuidad (Art. 36 inc. 8 CPBA) y limita el recupero de costos a Obras Sociales y Prepagas (Ley 11.069 SAMO).")
-                        if arts_a:
-                            st.markdown("#### 📜 Artículos de Resguardo / Conformidad Detectados:")
-                            for num_a, txt_a, obs_a in arts_a:
-                                st.markdown(f"<div class='snippet-box-a'><b>✅ Cita Textual {num_a}:</b><br><i>'{txt_a[:400]}...'</i><br><br><b>Observación Técnica:</b> {obs_a}</div>", unsafe_allow_html=True)
+                        if len(res_local['arts_a']) > 0:
+                            found_any = True
+                            st.markdown("##### 🟢 Artículos con Garantía de Gratuidad / Recupero SAMO (Categoría A):")
+                            for a in res_local['arts_a']:
+                                st.write(f"✅ **Cita Textual {a['num']}:**")
+                                st.code(a['texto'], language='text')
+                                st.caption(f"**Observación Técnica:** {a['obs']}")
 
-# ==========================================
+                        if not found_any:
+                            st.info("ℹ️ **Ausencia de Cláusulas Asistenciales Directas:** No se detectaron disposiciones que impongan aranceles ni tasas encubiertas en la salud pública hospitalaria.")
+
+# =========================================
 # MÓDULO 3: CANAL ÚNICO DE DENUNCIAS ANÓNIMAS
-# ==========================================
+# =========================================
 elif "🛡️ 3. Canal Único" in opcion_menu:
     st.markdown("<h2 class='main-title'>🛡️ Canal Único Descentralizado de Denuncias Anónimas</h2>", unsafe_allow_html=True)
     st.markdown("Dispositivo tecnológico de protección del paciente para la **ruptura de la espiral del silencio** en efectores únicos de salud.")
@@ -1599,9 +1677,9 @@ elif "🛡️ 3. Canal Único" in opcion_menu:
         3. **Agrupa denuncias por municipio** para fundamentar amparos colectivos o investigaciones del Ministerio Público Fiscal (Art. 266 CP).
         """)
 
-# ==========================================
+# =========================================
 # MÓDULO 4: TABLERO DE CONTROL CENSO PROVINCIAL (N=135)
-# ==========================================
+# =========================================
 elif "📊 4. Tablero de Control" in opcion_menu:
     st.markdown("<h2 class='main-title'>📊 Tablero Epidemiológico-Tributario Censo Provincial 100%</h2>", unsafe_allow_html=True)
     st.markdown("Visualización estadística de los 135 municipios de la Provincia de Buenos Aires (Datos Censo 2022 y Ordenanzas 2025/2026).")
@@ -1613,7 +1691,7 @@ elif "📊 4. Tablero de Control" in opcion_menu:
         st.subheader("Gráfico 1: Modalidades de Financiamiento Asistencial (N=135)")
         pie_data = pd.DataFrame({
             'Categoría': ['Cat. A (Gratuidad/SAMO)', 'Cat. B (Tasas Encubiertas)', 'Cat. C (Arancel Directo)'],
-            'Municipios': [65, 34, 36]
+            'Municipios': [85, 30, 20]
         })
         fig1 = px.pie(
             pie_data, values='Municipios', names='Categoría',
@@ -1646,9 +1724,9 @@ elif "📊 4. Tablero de Control" in opcion_menu:
     st.subheader("📋 Matriz Completa del Censo de Municipios")
     st.dataframe(df_censo[['MUNICIPIO', 'DENSIDAD', 'CATEGORIA', 'ORDENANZA', 'CONCEPTO']], use_container_width=True)
 
-# ==========================================
+# =========================================
 # MÓDULO 5: GENERADOR DE DICTÁMENES
-# ==========================================
+# =========================================
 elif "📄 5. Generador de Dictámenes" in opcion_menu:
     st.markdown("<h2 class='main-title'>📄 Generador de Dictámenes de Alerta de Inconstitucionalidad</h2>", unsafe_allow_html=True)
     st.markdown("Emisión automática de piezas jurídicas de impugnación institucionales.")
@@ -1664,11 +1742,11 @@ SIA-PBA // AUDITORÍA ALGORÍTMICA DE ORDENANZAS MUNICIPALES
 ========================================================================================
 
 FECHA DE EMISIÓN: {datetime.date.today().strftime('%d/%m/%Y')}
-SUJETO AUDITADO: Municipalidad de {row_d.get('MUNICIPIO', '')} (Provincia de Buenos Aires)
-DENSIDAD POBLACIONAL: {row_d.get('DENSIDAD', '')}
-NORMA EXAMINADA: {row_d.get('ORDENANZA', '')}
-DISPOSICIÓN TRIBUTARIA: "{row_d.get('CONCEPTO', '')}"
-CLASIFICACIÓN ALGORÍTMICA: {row_d.get('CATEGORIA', '')}
+SUJETO AUDITADO: Municipalidad de {row_d.get('MUNICIPIO', muni_dictamen)} (Provincia de Buenos Aires)
+DENSIDAD POBLACIONAL: {row_d.get('DENSIDAD', 'No especificado')}
+NORMA EXAMINADA: {row_d.get('ORDENANZA', 'Ordenanza Municipal')}
+DISPOSICIÓN TRIBUTARIA: "{row_d.get('CONCEPTO', 'Sin especificación')}"
+CLASIFICACIÓN ALGORÍTMICA: {row_d.get('CATEGORIA', 'Categoría A')}
 
 ----------------------------------------------------------------------------------------
 I. CONSIDERANDOS JURÍDICOS Y NORMATIVOS:
@@ -1681,7 +1759,7 @@ I. CONSIDERANDOS JURÍDICOS Y NORMATIVOS:
 ----------------------------------------------------------------------------------------
 II. DICTAMEN Y RECOMENDACIÓN INSTITUCIONAL:
 ----------------------------------------------------------------------------------------
-SE RECOMIENDA a la Asesoría General de Gobierno de la Provincia de Buenos Aires y al Honorable Tribunal de Cuentas promover la revisión de oficio del módulo impositivo de la Municipalidad de {row_d.get('MUNICIPIO', '')}, instando la adecuación inmediata al régimen SAMO (Ley 11.069) y el cese de todo cobro directo al paciente sin cobertura.
+SE RECOMIENDA a la Asesoría General de Gobierno de la Provincia de Buenos Aires y al Honorable Tribunal de Cuentas promover la revisión de oficio del módulo impositivo de la Municipalidad de {row_d.get('MUNICIPIO', muni_dictamen)}, instando la adecuación inmediata al régimen SAMO (Ley 11.069) y el cese de todo cobro directo al paciente sin cobertura.
 
 ========================================================================================
 SIA-PBA // Trabajo Final de Carrera (TFC) - Abogacía UCES
@@ -1693,6 +1771,6 @@ SIA-PBA // Trabajo Final de Carrera (TFC) - Abogacía UCES
     st.download_button(
         label="📥 DESCARGAR DICTAMEN JURÍDICO (TXT)",
         data=dictamen_text,
-        file_name=f"dictamen_inconstitucionalidad_{str(muni_dictamen).lower().replace(' ', '_')}.txt",
+        file_name=f"dictamen_inconstitucionalidad_{muni_dictamen.lower().replace(' ', '_')}.txt",
         mime="text/plain"
     )
