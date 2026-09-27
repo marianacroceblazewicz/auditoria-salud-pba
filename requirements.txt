@@ -2,7 +2,4 @@ streamlit
 pandas
 numpy
 plotly
-pypdf
-pdf2image
-pytesseract
-pillow
+google-genai
