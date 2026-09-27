@@ -6,39 +6,52 @@ import plotly.graph_objects as go
 import re
 import hashlib
 import datetime
+import io
+import pypdf
+
+# Try importing OCR libraries gracefully
+OCR_AVAILABLE = False
+try:
+    import pytesseract
+    from pdf2image import convert_from_bytes, get_page_count
+    OCR_AVAILABLE = True
+except Exception:
+    OCR_AVAILABLE = False
 
 # ==========================================
-# CONFIGURACIÓN DE PÁGINA Y ESTILO PBA
+# CONFIGURACIÓN DE PÁGINA Y ESTILO OFICIAL PBA
 # ==========================================
 st.set_page_config(
-    page_title="SIA-PBA | Sistema de Auditoría Algorítmica & Canal de Denuncias",
+    page_title="SIA-PBA | Auditoría Algorítmica & Canal Único (Gobierno PBA)",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Estilo CSS Institucional Gobierno de la Provincia de Buenos Aires
+# Estilo CSS Institucional Provincia de Buenos Aires
 st.markdown("""
 <style>
     .pba-header {
         background-color: #003366;
         color: white;
-        padding: 15px 20px;
+        padding: 15px 25px;
         border-radius: 8px;
         margin-bottom: 20px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     .pba-header h1 {
         color: #FFFFFF !important;
-        font-family: 'Helvetica Neue', Arial, sans-serif;
+        font-family: 'Arial', sans-serif;
         font-weight: 700;
         font-size: 1.8rem;
         margin: 0;
     }
     .pba-header p {
-        color: #E0E8F0;
-        margin: 5px 0 0 0;
-        font-size: 0.95rem;
+        color: #00A3E0 !important;
+        font-size: 1.0rem;
+        margin-top: 5px;
+        margin-bottom: 0;
+        font-weight: 500;
     }
     .main-title {
         color: #003366;
@@ -54,37 +67,37 @@ st.markdown("""
     .card-stat {
         background-color: #F4F6F9;
         border-radius: 8px;
-        padding: 15px;
+        padding: 18px;
         border-left: 5px solid #003366;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     .badge-cat-a {
         background-color: #D4EDDA;
         color: #155724;
-        padding: 6px 12px;
-        border-radius: 15px;
+        padding: 5px 12px;
+        border-radius: 12px;
         font-weight: bold;
         display: inline-block;
     }
     .badge-cat-b {
         background-color: #FFF3CD;
         color: #856404;
-        padding: 6px 12px;
-        border-radius: 15px;
+        padding: 5px 12px;
+        border-radius: 12px;
         font-weight: bold;
         display: inline-block;
     }
     .badge-cat-c {
         background-color: #F8D7DA;
         color: #721C24;
-        padding: 6px 12px;
-        border-radius: 15px;
+        padding: 5px 12px;
+        border-radius: 12px;
         font-weight: bold;
         display: inline-block;
     }
     .legal-box {
-        background-color: #F8FAFC;
-        border-left: 4px solid #00A3E0;
+        background-color: #EDF2F7;
+        border-left: 5px solid #00A3E0;
         padding: 15px;
         border-radius: 6px;
         font-size: 0.95rem;
@@ -93,172 +106,193 @@ st.markdown("""
     .snippet-box {
         background-color: #FFF5F5;
         border-left: 4px solid #E53E3E;
-        padding: 10px 15px;
-        margin: 8px 0;
+        padding: 12px;
+        margin-top: 8px;
+        margin-bottom: 8px;
         border-radius: 4px;
-        font-family: monospace;
-        font-size: 0.88rem;
-        color: #9B2C2C;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        color: #742A2A;
     }
 </style>
 """, unsafe_allow_html=True)
 
+# Encabezado Oficial PBA
+st.markdown("""
+<div class="pba-header">
+    <h1>🏛️ Gobierno de la Provincia de Buenos Aires</h1>
+    <p>SIA-PBA: Sistema Integrado de Auditoría Algorítmica de Ordenanzas & Canal Único de Denuncias</p>
+</div>
+""", unsafe_allow_html=True)
+
 # ==========================================
-# BASE DE DATOS REAL CENSO PROVINCIAL (N=135)
+# BASE DE DATOS COMPLETA CENSO PROVINCIAL (N=135)
 # ==========================================
 @st.cache_data
-def get_censo_data():
-    raw_data = [
-        {"MUNICIPIO": "25 de mayo", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa , impuesto encubierto", "ORDENANZA": "Ordenanza 25 de Mayo", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Adolfo Alsina", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicio asistencial Art. 31", "ORDENANZA": "Ordenanza Adolfo Alsina", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Adolfo González Chávez", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa cobertura universal de salud, impuesto encubierto", "ORDENANZA": "Ordenanza González Chávez", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Alberti", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicio asistencial Art. 129", "ORDENANZA": "Ordenanza Alberti", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Almirante Brown", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema recupero SAMO", "ORDENANZA": "Ordenanza Almirante Brown", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Arrecifes", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa servicio asistencial Art. 179 y ss", "ORDENANZA": "Odenanza Arrecifes", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Avellaneda", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema recupero SAMO", "ORDENANZA": "Ordenanza Avellaneda", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Ayacucho", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicio asistencial Art. 36 inc. 2", "ORDENANZA": "Ordenanza Ayacucho", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Azul", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa servicios esenciales (impuesto encubierto)", "ORDENANZA": "Ordenanza Azul 2025", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Bahía Blanca", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa por servicios asistenciales Art 254 y ss", "ORDENANZA": "Ordenanza Bahía Blanca", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Balcarce", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Contribución Obligatoria para la Salud Art 73", "ORDENANZA": "Ordenanza Balcarce", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Baradero", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Fondo municipal de Salud ART. 37", "ORDENANZA": "Ordenanza Baradero", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Beníto Juárez", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Ausencia de concepto en ordenanza", "ORDENANZA": "Ordenanza Benito Juárez", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Berazategui", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa servicio asistencial Art. 160", "ORDENANZA": "Ordenanza Berazategui", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Berisso", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Ausencia de concepto en ordenanza", "ORDENANZA": "Ordenanza Berisso", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Bolívar", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Sistema recupero SAMO", "ORDENANZA": "Ordenanza Bolívar", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Bragado", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Sin anexo impositivo disponible", "ORDENANZA": "Ordenanza Bragado", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Brandsen", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza Brandsen", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Campana", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa Aporte para la Salud Pública Art. 353 (impuesto encubierto)", "ORDENANZA": "Ordenanza Campana", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Cañuelas", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Ausencia concepto en ordenanza", "ORDENANZA": "Ordenanza Cañuelas", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Capitán Sarmiento", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicio asistencial Art. 135 y ss", "ORDENANZA": "Ordenanza Capitán Sarmiento", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Carlos Casares", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Fondo municipal de Salud Art. 178 y ss (impuesto encubierto)", "ORDENANZA": "Ordenanza Carlos Casares", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Carlos Tejedor", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Ausencia concepto en ordenanza", "ORDENANZA": "Ordenanza Carlos Tejedor", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Carmen De Areco", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Ausencia concepto en ordenanza", "ORDENANZA": "Ordenanza Carmen de Areco", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Castelli", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "SAMO + Tasa servicio asistencial", "ORDENANZA": "Ordenanza Castelli", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Chacabuco", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Ausencia concepto en ordenanza", "ORDENANZA": "Ordenanza Chacabuco", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Chascomús", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "SAMO Exclusivo", "ORDENANZA": "Ordenanza Chascomús", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Chivilcoy", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa servicios asistenciales, impuesto encubierto", "ORDENANZA": "Ordenanza Chivilcoy", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Colón", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "SAMO Exclusivo", "ORDENANZA": "Ordenanza Colón", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Coronel Dorrego", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Sistema SAMO + Tasa servicios asistenciales Art 177", "ORDENANZA": "Ordenanza Coronel Dorrego", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Coronel Pringles", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales", "ORDENANZA": "Ordenanza Coronel Pringles", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Coronel Rosales", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Normativa desactualizada", "ORDENANZA": "Ordenanza Coronel Rosales", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Coronel Suárez", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa servicios asistenciales Art. 144 y ss", "ORDENANZA": "Ordenanza Coronel Suárez", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Daireaux", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa asistencial Art 23", "ORDENANZA": "Ordenanza Daireaux", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Dolores", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa asistencial Art 29", "ORDENANZA": "Ordenanza Dolores", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Ensenada", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "SAMO Exclusivo", "ORDENANZA": "Ordenanza Ensenada", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Escobar", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa por servicios especiales (impuesto encubierto)", "ORDENANZA": "Ordenanza Escobar", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Esteban Echeverría", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "SAMO Exclusivo", "ORDENANZA": "Ordenanza Esteban Echeverría", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Exaltación De La Cruz", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa por servicios generales (impuesto encubierto)", "ORDENANZA": "Ordenanza Exaltación de la Cruz", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Ezeiza", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Servicios complementarios de salud. Contribución especial", "ORDENANZA": "Ordenanza Ezeiza", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Florencio Varela", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa por servicios generales (impuesto encubierto)", "ORDENANZA": "Ordenanza Florencio Varela", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Florentino Ameghino", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Aranceles hospitalarios", "ORDENANZA": "Ordenanza Florentino Ameghino", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Alvarado", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa de salud", "ORDENANZA": "Ordenanza General Alvarado", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Alvear", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa por servicios asistenciales Art. 38", "ORDENANZA": "Ordenanza General Alvear", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Arenales", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 134 y ss", "ORDENANZA": "Ordenanza General Arenales", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Belgrano", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa asistencial", "ORDENANZA": "Ordenanza General Belgrano", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Guido", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa de Servicio de Salud Art 21", "ORDENANZA": "Ordenanza General Guido", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Juan Madariaga", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa por servicios asistenciales Art 208 y ss", "ORDENANZA": "Ordenanza General Madariaga", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General La Madrid", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicio asistenciales Art 13", "ORDENANZA": "Ordenanza General La Madrid", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Las Heras", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 123 y ss", "ORDENANZA": "Ordenanza General Las Heras", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Lavalle", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 173 y ss", "ORDENANZA": "Ordenanza General Lavalle", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Paz", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa contributiva UTI y cobro no residentes Art. 291", "ORDENANZA": "Ordenanza General Paz", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Pinto", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Aranceles hospitalarios Art. 240 y ss", "ORDENANZA": "Ordenanza General Pinto", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Pueyrredón", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Contribución a la Salud y Educación Art 217", "ORDENANZA": "Ordenanza Mar del Plata", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "General Rodríguez", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa asistencial hospital odontológico/oftalmológico", "ORDENANZA": "Ordenanza General Rodríguez", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General San Martín", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "SAMO Art 303 y ss", "ORDENANZA": "Ordenanza San Martín", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "General Viamonte", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa asistencial Art. 205 y ss", "ORDENANZA": "Ordenanza General Viamonte", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "General Villegas", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Fondo por Servicios Asistenciales Art. 57", "ORDENANZA": "Ordenanza General Villegas", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Guamini", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa salud (impuesto encubierto) + Tasa asistencial", "ORDENANZA": "Ordenanza Guaminí", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Hipólito Yrigoyen", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 45 y ss", "ORDENANZA": "Ordenanza Hipólito Yrigoyen", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Hurlingham", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza Hurlingham", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Ituzaingó", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "SAMO + Tasa de protección ciudadana (impuesto encubierto)", "ORDENANZA": "Ordenanza Ituzaingó", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "José C. Paz", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza José C. Paz", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Junín", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa por Servicios Públicos Urbanos Art. 1", "ORDENANZA": "Ordenanza Junín", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "La Costa", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa asistencial Art. 198 + Fondo Salud a rurales", "ORDENANZA": "Ordenanza La Costa", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "La Matanza", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "SAMO Art 249", "ORDENANZA": "Ordenanza La Matanza", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "La Plata", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza La Plata", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Lanus", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza Lanús", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Laprida", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "SAMO Art. 20", "ORDENANZA": "Ordenanza Laprida", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Las Flores", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza Las Flores", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Leandro N. Alem", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Aranceles de los servicios asistenciales Art. 160", "ORDENANZA": "Ordenanza L. N. Alem", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Lezama", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Sistema SAMO Art. 23 + Tasas encubiertas", "ORDENANZA": "Ordenanza Lezama", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Lincoln", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa servicios asistenciales Art. 21", "ORDENANZA": "Ordenanza Lincoln", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Lobería", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 192 y ss", "ORDENANZA": "Ordenanza Lobería", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Lobos", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa por Salud, Seguridad, Educación (impuesto encubierto)", "ORDENANZA": "Ordenanza Lobos", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Lomas de Zamora", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza Lomas de Zamora", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Luján", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza Luján", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Magdalena", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza Magdalena", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Maipú", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 12 y ss", "ORDENANZA": "Ordenanza Maipú", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Malvinas Argentinas", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 192 y ss", "ORDENANZA": "Ordenanza Malvinas Argentinas", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Mar Chiquita", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa Asistencial + Fondo Complementario Salud", "ORDENANZA": "Ordenanza Mar Chiquita", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Marcos Paz", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa servicios asistenciales Art. 232 y ss", "ORDENANZA": "Ordenanza Marcos Paz", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Mercedes", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Contribución especial Art. 6 (impuesto encubierto)", "ORDENANZA": "Ordenanza Mercedes", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Merlo", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "SAMO Art 42", "ORDENANZA": "Ordenanza Merlo", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Monte", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Contribución especial Art. 68 (impuesto encubierto)", "ORDENANZA": "Ordenanza Monte", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Monte Hermoso", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "SAMO + Tasa servicios asistenciales Art. 272", "ORDENANZA": "Ordenanza Monte Hermoso", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Moreno", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa de Salud y Asistencia Social Art. 43 sobre multas", "ORDENANZA": "Ordenanza Moreno", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Morón", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "SAMO Art. 288 y 290", "ORDENANZA": "Ordenanza Morón", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Navarro", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza Navarro", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Necochea", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "TASA POR FORTALECIMIENTO DE SALUD Art. 426", "ORDENANZA": "Ordenanza Necochea", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Nueve de Julio", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa servicios asistenciales Art. 44", "ORDENANZA": "Ordenanza Nueve de Julio", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Olavarría", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema SIAMO por cuota + Tasa asistencial Art. 138", "ORDENANZA": "Ordenanza Olavarría", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Patagones", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa servicios asistenciales Art. 239 y ss", "ORDENANZA": "Ordenanza Patagones", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Pehuajó", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa servicios asistenciales Art. 215 y ss", "ORDENANZA": "Ordenanza Pehuajó", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Pellegrini", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Sistema de recupero SAMO Art. 40 y ss", "ORDENANZA": "Ordenanza Pellegrini", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Pergamino", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza Pergamino", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Pila", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Ausencia de concepto", "ORDENANZA": "Ordenanza Pila", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Pilar", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Tasa servicios de salud Art. 263 y ss", "ORDENANZA": "Ordenanza Pilar", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Pinamar", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "TASA POR DERECHOS SANATORIALES Art. 97 y ss", "ORDENANZA": "Ordenanza Pinamar", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Presidente Perón", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Ausencia concepto", "ORDENANZA": "Ordenanza Presidente Perón", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Puán", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 170 y ss", "ORDENANZA": "Ordenanza Puán", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Punta Indio", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Fondo Solidario de Salud Pública Art. 202", "ORDENANZA": "Ordenanza Punta Indio", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Quilmes", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema SAMO Art. 316 y ss", "ORDENANZA": "Ordenanza Quilmes", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Ramallo", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa servicios asistenciales Art. 238", "ORDENANZA": "Ordenanza Ramallo", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Rauch", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Título XV", "ORDENANZA": "Ordenanza Rauch", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Rivadavia", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Servicios asistenciales Art 238 y ss", "ORDENANZA": "Ordenanza Rivadavia", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Rojas", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Cobro a obras sociales Art. 215 y ss", "ORDENANZA": "Ordenanza Rojas", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Roque Pérez", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa asistencial Art 33 SAMO + Tasa salud fija", "ORDENANZA": "Ordenanza Roque Pérez", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Saavedra Pigue", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 273 y ss", "ORDENANZA": "Ordenanza Saavedra", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Saladillo", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Sistema SAMO Exclusivo", "ORDENANZA": "Ordenanza Saladillo", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "Salliquelo", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 69 + Plan Salud", "ORDENANZA": "Ordenanza Salliqueló", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Salto", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Sistema SAMO + Tasa asistencial Art. 206", "ORDENANZA": "Ordenanza Salto", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "San Andrés de Giles", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art 247 y ss", "ORDENANZA": "Ordenanza San Andrés de Giles", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "San Antonio de Areco", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa por servicios de salud Art 218 (impuesto encubierto)", "ORDENANZA": "Ordenanza San Antonio de Areco", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "San Cayetano", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Sistema SAMO Exclusivo", "ORDENANZA": "Ordenanza San Cayetano", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "San Fernando", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema SAMO + Tasa asistencial Art. 141", "ORDENANZA": "Ordenanza San Fernando", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "San Isidro", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema SAMO Art 141 y ss", "ORDENANZA": "Ordenanza San Isidro", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "San Miguel Joaquín", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema SAMO Art 94 y ss", "ORDENANZA": "Ordenanza San Miguel", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "San Nicolás", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema SAMO Art 301 y ss", "ORDENANZA": "Ordenanza San Nicolás", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "San Pedro", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Sistema SAMO Art. 250 y ss", "ORDENANZA": "Ordenanza San Pedro", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"},
-        {"MUNICIPIO": "San Vicente", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Contribución al Sistema de Salud Pública (impuesto encubierto)", "ORDENANZA": "Ordenanza San Vicente", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Suipacha", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa de salud + Prestaciones Hospitalarias Art. 132", "ORDENANZA": "Ordenanza Suipacha", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Tandil", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "SISTEMA INTEGRADO DE SALUD PÚBLICA ENTE DESCENTRALIZADO", "ORDENANZA": "Ordenanza Tandil", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Tapalque", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art. 200 + UTI", "ORDENANZA": "Ordenanza Tapalqué", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Tigre", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema SAMO + Tasa asistencial no residentes Art 83", "ORDENANZA": "Ordenanza Tigre", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Tordillo", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales Art 28 y ss", "ORDENANZA": "Ordenanza Tordillo", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Tornquist", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Sistema SAMO + Tasa servicios asistenciales Art. 142", "ORDENANZA": "Ordenanza Tornquist", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Trenque launquen", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Sistema SAMO + Tasa servicios asistenciales Art 89", "ORDENANZA": "Ordenanza Trenque Lauquen", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Tres Arroyos", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa solidaria de sostenimiento de salud Art. 183", "ORDENANZA": "Ordenanza Tres Arroyos", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Tres de Febrero", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema SAMO Tributo por servicios asistenciales ART 245", "ORDENANZA": "Ordenanza Tres de Febrero", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Tres Lomas", "DENSIDAD": "Baja (< 25.000 hab.)", "COBRO": "Tasa servicios asistenciales", "ORDENANZA": "Ordenanza Tres Lomas", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Vicente López", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema SAMO derechos asistenciales Art 254 y ss", "ORDENANZA": "Ordenanza Vicente López", "CATEGORIA": "Categoría C (Arancel Directo)"},
-        {"MUNICIPIO": "Villa Gesell", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Tasa salud ART 148 Y SS (impuesto encubierto)", "ORDENANZA": "Ordenanza Villa Gesell", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Villarino", "DENSIDAD": "Media (25k-100k hab.)", "COBRO": "Derecho Comercialización Hortícola para salud Art 232", "ORDENANZA": "Ordenanza Villarino", "CATEGORIA": "Categoría B (Tasa Encubierta)"},
-        {"MUNICIPIO": "Zárate", "DENSIDAD": "Alta (> 100.000 hab.)", "COBRO": "Sistema SAMO Art 217 y ss", "ORDENANZA": "Ordenanza Zárate", "CATEGORIA": "Categoría A (Gratuidad / SAMO)"}
+def get_censo_pba():
+    data_raw = [
+        {"MUNICIPIO": "25 de mayo", "COBRO": "Tasa , impuesto encubierto", "CONCEPTO": "Tasa , impuesto encubierto", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Adolfo Alsina", "COBRO": "Tasa servicio asistencial Art. 31", "CONCEPTO": "Tasa servicio asistencial Art. 31", "ORDENANZA": "Ordenanza Fiscal y Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Adolfo González Chávez", "COBRO": "Tasa cobertura universal de salud", "CONCEPTO": "Tasa cobertura universal de salud, impuesto encubierto", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Alberti", "COBRO": "Tasa servicio asistencial Art. 129", "CONCEPTO": "Tasa servicio asistencial Art. 129", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Almirante Brown", "COBRO": "Sistema recupero SAMO", "CONCEPTO": "Sistema recupero SAMO (Sin cobro directo)", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Arrecifes", "COBRO": "Tasa servicio asistencial Art. 179 y ss", "CONCEPTO": "Individualiza al paciente como sujeto de cobro. Arancel directo y apremio fiscal.", "ORDENANZA": "Ordenanza Impositiva Art 179", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Avellaneda", "COBRO": "Sistema recupero SAMO", "CONCEPTO": "Sistema recupero SAMO (Sin cobro directo)", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Ayacucho", "COBRO": "Tasa servicio asistencial Art. 36 inc. 2", "CONCEPTO": "Cobro directo de arancel hospitalario.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Azul", "COBRO": "Tasa servicios esenciales", "CONCEPTO": "Tasa de servicios esenciales (Impuesto encubierto)", "ORDENANZA": "Ordenanza Impositiva 2025", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Bahía Blanca", "COBRO": "Tasa por servicios asistenciales Art 254", "CONCEPTO": "Arancelamiento directo por servicios médicos.", "ORDENANZA": "Ordenanza Fiscal Art 254", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Balcarce", "COBRO": "Contribución Obligatoria para la Salud Art 73", "CONCEPTO": "Contribución obligatoria sobre tasa municipal.", "ORDENANZA": "Ordenanza Impositiva Art 73", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Baradero", "COBRO": "Fondo municipal de Salud ART. 37", "CONCEPTO": "Fondo especial sobre servicios generales.", "ORDENANZA": "Ordenanza Fiscal Art 37", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Beníto Juárez", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Berazategui", "COBRO": "Tasa servicio asistencial Art. 160", "CONCEPTO": "Arancel por prestaciones sanitarias.", "ORDENANZA": "Ordenanza Impositiva Art 160", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Berisso", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Bolívar", "COBRO": "Sistema recupero SAMO", "CONCEPTO": "Sistema recupero SAMO (Derogada tasa en 1998)", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Bragado", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Sin anexo impositivo de cobro.", "ORDENANZA": "Ordenanza General", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Brandsen", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Campana", "COBRO": "Tasa Aporte para la Salud Pública Art. 353", "CONCEPTO": "Tasa especial de aporte a la salud pública.", "ORDENANZA": "Ordenanza Impositiva Art 353", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Cañuelas", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Capitán Sarmiento", "COBRO": "Tasa servicio asistencial Art. 135 y ss", "CONCEPTO": "Arancelamiento por consulta y prácticas.", "ORDENANZA": "Ordenanza Impositiva Art 135", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Carlos Casares", "COBRO": "Fondo municipal de Salud Art. 178", "CONCEPTO": "Fondo especial de salud (Impuesto encubierto)", "ORDENANZA": "Ordenanza Fiscal Art 178", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Carlos Tejedor", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Carmen De Areco", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Castelli", "COBRO": "SAMO + Tasa servicio asistencial", "CONCEPTO": "Cobro directo de aranceles asistenciales.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Chacabuco", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Chascomús", "COBRO": "Sistema recupero SAMO", "CONCEPTO": "Adhesión exclusiva a Ley SAMO 11.069", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Chivilcoy", "COBRO": "Tasa servicios asistenciales", "CONCEPTO": "Cobro de tasa asistencial hospitalaria.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Colón", "COBRO": "Sistema recupero SAMO", "CONCEPTO": "Adhesión exclusiva a Ley SAMO 11.069", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Coronel Dorrego", "COBRO": "SAMO + Tasa servicios asistenciales Art 177", "CONCEPTO": "Cobro de tasa asistencial en hospital local.", "ORDENANZA": "Ordenanza Impositiva Art 177", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Coronel Pringles", "COBRO": "Tasa servicios asistenciales", "CONCEPTO": "Arancel por prestaciones hospitalarias.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Coronel Rosales", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Coronel Suárez", "COBRO": "Tasa servicios asistenciales Art. 144", "CONCEPTO": "Arancel por servicios médicos.", "ORDENANZA": "Ordenanza Impositiva Art 144", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Daireaux", "COBRO": "Tasa asistencial Art 23", "CONCEPTO": "Cobro de tasa asistencial médica.", "ORDENANZA": "Ordenanza Impositiva Art 23", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Dolores", "COBRO": "Tasa asistencial Art 29", "CONCEPTO": "Arancelamiento directo en efector municipal.", "ORDENANZA": "Ordenanza Impositiva Art 29", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Ensenada", "COBRO": "Sistema recupero SAMO", "CONCEPTO": "Adhesión exclusiva a Ley SAMO 11.069", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Escobar", "COBRO": "Tasa por servicios especiales", "CONCEPTO": "Tasa asistencial especial de salud.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Esteban Echeverría", "COBRO": "Sistema recupero SAMO", "CONCEPTO": "Adhesión exclusiva a Ley SAMO 11.069", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Exaltación De La Cruz", "COBRO": "Tasa por servicios generales", "CONCEPTO": "Adición sobre tasa municipal para salud.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Ezeiza", "COBRO": "Servicios complementarios de salud", "CONCEPTO": "Contribución especial para equipamiento de salud.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Florencio Varela", "COBRO": "Tasa por servicios generales", "CONCEPTO": "Financiamiento de salud en tasa de servicios.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Florentino Ameghino", "COBRO": "Aranceles hospitalarios", "CONCEPTO": "Cobro de aranceles hospitalarios directos.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Alvarado", "COBRO": "Tasa de salud", "CONCEPTO": "Tasa específica destinada al sistema de salud.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "General Alvear", "COBRO": "Tasa por servicios asistenciales Art. 38", "CONCEPTO": "Cobro arancelario por atenciones médicas.", "ORDENANZA": "Ordenanza Impositiva Art 38", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Arenales", "COBRO": "Tasa servicios asistenciales Art. 134", "CONCEPTO": "Arancel asistencial hospitalario.", "ORDENANZA": "Ordenanza Impositiva Art 134", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Belgrano", "COBRO": "Tasa asistencial", "CONCEPTO": "Cobro de arancel por guardia y atención.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Guido", "COBRO": "Tasa de Servicio de Salud Art 21", "CONCEPTO": "Arancel directo por servicios de salud.", "ORDENANZA": "Ordenanza Impositiva Art 21", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Juan Madariaga", "COBRO": "Tasa por servicios asistenciales Art 208", "CONCEPTO": "Arancelamiento directo en hospital público.", "ORDENANZA": "Ordenanza Impositiva Art 208", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General La Madrid", "COBRO": "Tasa servicio asistenciales Art 13", "CONCEPTO": "Cobro directo de prestaciones médicas.", "ORDENANZA": "Ordenanza Impositiva Art 13", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Las Heras", "COBRO": "Tasa servicios asistenciales Art. 123", "CONCEPTO": "Arancelamiento hospitalario.", "ORDENANZA": "Ordenanza Impositiva Art 123", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Lavalle", "COBRO": "Tasa servicios asistenciales Art. 173", "CONCEPTO": "Cobro directo por atenciones médicas.", "ORDENANZA": "Ordenanza Impositiva Art 173", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Paz", "COBRO": "Tasa contributiva terapia intensiva Art. 291", "CONCEPTO": "Tasa diferenciada para no residentes por UTI.", "ORDENANZA": "Ordenanza Impositiva Art 291", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Pinto", "COBRO": "Aranceles hospitalarios Art. 240", "CONCEPTO": "Cobro de aranceles por prestaciones médicas.", "ORDENANZA": "Ordenanza Impositiva Art 240", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Pueyrredón", "COBRO": "Contribución a la Salud Art 217", "CONCEPTO": "Adicional sobre tasa municipal para salud.", "ORDENANZA": "Ordenanza Impositiva Art 217", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "General Rodríguez", "COBRO": "Tasa especial servicios de salud Art 42", "CONCEPTO": "Tasa especial de salud e impositiva.", "ORDENANZA": "Ordenanza Impositiva Art 42", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "General San Martín", "COBRO": "SAMO Art 303 y ss", "CONCEPTO": "Adhesión al régimen SAMO Ley 11.069", "ORDENANZA": "Ordenanza Fiscal Art 303", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "General Viamonte", "COBRO": "Tasa asistencial Art. 205", "CONCEPTO": "Arancel directo por servicios sanitarios.", "ORDENANZA": "Ordenanza Impositiva Art 205", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "General Villegas", "COBRO": "Fondo por servicios asistenciales Art. 57", "CONCEPTO": "Fondo especial asistencial en efector público.", "ORDENANZA": "Ordenanza Fiscal Art 57", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Guamini", "COBRO": "Tasa salud Art 205 + Tasa asistencial Art 30", "CONCEPTO": "Cobro de tasa asistencial y tasa de salud.", "ORDENANZA": "Ordenanza Impositiva Art 30", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Hipólito Yrigoyen", "COBRO": "Tasa servicios asistenciales Art. 45", "CONCEPTO": "Arancelamiento directo en hospital local.", "ORDENANZA": "Ordenanza Impositiva Art 45", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Hurlingham", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Ituzaingó", "COBRO": "SAMO + Tasa de protección ciudadana", "CONCEPTO": "Recupero SAMO sin cobro directo al paciente.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "José C. Paz", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Junín", "COBRO": "Tasa por servicios públicos urbanos Art. 1", "CONCEPTO": "Inclusión de partida de salud en tributo urbano.", "ORDENANZA": "Ordenanza Fiscal Art 1", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "La Costa", "COBRO": "Tasa servicios asistenciales Art. 198", "CONCEPTO": "Arancel asistencial hospitalario.", "ORDENANZA": "Ordenanza Impositiva Art 198", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "La Matanza", "COBRO": "SAMO Art 249", "CONCEPTO": "Adhesión exclusiva a Ley SAMO 11.069", "ORDENANZA": "Ordenanza Fiscal Art 249", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "La Plata", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario directo.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Lanus", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Laprida", "COBRO": "SAMO Art. 20", "CONCEPTO": "Recupero de costos a obras sociales vía SAMO.", "ORDENANZA": "Ordenanza Fiscal Art 20", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Las Flores", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Leandro N. Alem", "COBRO": "Aranceles de servicios asistenciales Art. 160", "CONCEPTO": "Arancel directo por atención médica.", "ORDENANZA": "Ordenanza Impositiva Art 160", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Lezama", "COBRO": "SAMO Art. 23 + Tasas adicionales", "CONCEPTO": "Sistema SAMO más tasa asistencial impositiva.", "ORDENANZA": "Ordenanza Impositiva Art 23", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Lincoln", "COBRO": "Tasa servicios asistenciales Art. 21", "CONCEPTO": "Cobro de tasa asistencial médica.", "ORDENANZA": "Ordenanza Impositiva Art 21", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Lobería", "COBRO": "Tasa servicios asistenciales Art. 192", "CONCEPTO": "Cobro de aranceles asistenciales directos.", "ORDENANZA": "Ordenanza Impositiva Art 192", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Lobos", "COBRO": "Tasa por salud, seguridad y educación Art. 30", "CONCEPTO": "Adicional de salud sobre tasas municipales.", "ORDENANZA": "Ordenanza Fiscal Art 30", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Lomas de Zamora", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Luján", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Magdalena", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Maipú", "COBRO": "Tasa servicios asistenciales Art. 12", "CONCEPTO": "Arancel directo por prestaciones asistenciales.", "ORDENANZA": "Ordenanza Impositiva Art 12", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Malvinas Argentinas", "COBRO": "Tasa servicios asistenciales Art. 192", "CONCEPTO": "Arancel por atenciones médicas especializadas.", "ORDENANZA": "Ordenanza Impositiva Art 192", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Mar Chiquita", "COBRO": "Tasa Servicios Asistenciales Art. 198", "CONCEPTO": "Tasa asistencial y fondo de salud.", "ORDENANZA": "Ordenanza Impositiva Art 198", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Marcos Paz", "COBRO": "Tasa servicios asistenciales Art. 232", "CONCEPTO": "Arancel asistencial hospitalario.", "ORDENANZA": "Ordenanza Impositiva Art 232", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Mercedes", "COBRO": "Contribución especial Art. 6", "CONCEPTO": "Contribución impositiva para gastos de salud.", "ORDENANZA": "Ordenanza Fiscal Art 6", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Merlo", "COBRO": "SAMO Art 42", "CONCEPTO": "Adhesión exclusiva al sistema SAMO.", "ORDENANZA": "Ordenanza Fiscal Art 42", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Monte", "COBRO": "Contribución especial Art. 68", "CONCEPTO": "Adicional impositivo destinado a la salud.", "ORDENANZA": "Ordenanza Fiscal Art 68", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Monte Hermoso", "COBRO": "SAMO + Tasa servicios asistenciales Art. 272", "CONCEPTO": "Arancel por atenciones hospitalarias.", "ORDENANZA": "Ordenanza Impositiva Art 272", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Moreno", "COBRO": "Tasa de salud y asistencia social Art. 43", "CONCEPTO": "Alícuota impositiva sobre multas para salud.", "ORDENANZA": "Ordenanza Fiscal Art 43", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Morón", "COBRO": "SAMO Art. 288", "CONCEPTO": "Adhesión al régimen SAMO Ley 11.069", "ORDENANZA": "Ordenanza Fiscal Art 288", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Navarro", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de ordenanza arancelaria.", "ORDENANZA": "Ordenanza General", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Necochea", "COBRO": "Tasa de fortalecimiento de salud Art. 426", "CONCEPTO": "Tasa especial de salud impositiva.", "ORDENANZA": "Ordenanza Fiscal Art 426", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Nueve de Julio", "COBRO": "Tasa servicios asistenciales Art. 44", "CONCEPTO": "Cobro directo de arancel por atención médica.", "ORDENANZA": "Ordenanza Impositiva Art 44", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Olavarría", "COBRO": "Sistema SIAMO + Tasa asistencial Art 138", "CONCEPTO": "Cobertura municipal por cuota y tasa asistencial.", "ORDENANZA": "Ordenanza Impositiva Art 138", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Patagones", "COBRO": "Tasa servicios asistenciales Art. 239", "CONCEPTO": "Arancelamiento por servicios hospitalarios.", "ORDENANZA": "Ordenanza Impositiva Art 239", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Pehuajó", "COBRO": "Tasa servicios asistenciales Art. 215", "CONCEPTO": "Arancel asistencial directo en efector municipal.", "ORDENANZA": "Ordenanza Impositiva Art 215", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Pellegrini", "COBRO": "Sistema recupero SAMO Art. 40", "CONCEPTO": "Recupero de costos por SAMO a obras sociales.", "ORDENANZA": "Ordenanza Fiscal Art 40", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Pergamino", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Pila", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de ordenanza de cobro.", "ORDENANZA": "Ordenanza General", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Pilar", "COBRO": "Tasa servicios de salud Art. 263", "CONCEPTO": "Tasa municipal con asignación a salud.", "ORDENANZA": "Ordenanza Fiscal Art 263", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Pinamar", "COBRO": "Derechos sanatoriales / Asistenciales Art. 97", "CONCEPTO": "Cobro de derechos sanatoriales directos.", "ORDENANZA": "Ordenanza Impositiva Art 97", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Presidente Perón", "COBRO": "Gratuidad / Sin arancel directo", "CONCEPTO": "Ausencia de concepto arancelario.", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Puán", "COBRO": "Tasa servicios asistenciales Art. 170", "CONCEPTO": "Cobro de tasa asistencial en ordenanza impositiva.", "ORDENANZA": "Ordenanza Impositiva Art 170", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Punta Indio", "COBRO": "Fondo Solidario de Salud Pública Art. 202", "CONCEPTO": "Fondo solidario impositivo de salud.", "ORDENANZA": "Ordenanza Fiscal Art 202", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Quilmes", "COBRO": "Sistema SAMO Art. 316", "CONCEPTO": "Adhesión al régimen SAMO Ley 11.069", "ORDENANZA": "Ordenanza Fiscal Art 316", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Ramallo", "COBRO": "Tasa servicios asistenciales Art. 238", "CONCEPTO": "Arancel directo por servicios médicos.", "ORDENANZA": "Ordenanza Impositiva Art 238", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Rauch", "COBRO": "Tasa servicios asistenciales Anexo 1", "CONCEPTO": "Cobro de tasa asistencial hospitalaria.", "ORDENANZA": "Ordenanza Impositiva Título XV", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Rivadavia", "COBRO": "Servicios asistenciales Art 238", "CONCEPTO": "Arancelamiento directo por atenciones sanitarias.", "ORDENANZA": "Ordenanza Impositiva Art 238", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Rojas", "COBRO": "Cobro a obras sociales Art. 215", "CONCEPTO": "Sistema de cobro de prestaciones.", "ORDENANZA": "Ordenanza Impositiva Art 215", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Roque Pérez", "COBRO": "Tasa servicios asistenciales Art 33 + SAMO", "CONCEPTO": "Tasa asistencial y tasa por salud anual.", "ORDENANZA": "Ordenanza Impositiva Art 33", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Saavedra Pigue", "COBRO": "Tasa servicios asistenciales Art. 273", "CONCEPTO": "Cobro arancelario por servicios médicos.", "ORDENANZA": "Ordenanza Impositiva Art 273", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Saladillo", "COBRO": "Sistema recupero SAMO", "CONCEPTO": "Adhesión exclusiva a Ley SAMO 11.069", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Salliquelo", "COBRO": "Tasa servicios asistenciales Art. 69", "CONCEPTO": "Tasa asistencial y Plan de Salud Municipal.", "ORDENANZA": "Ordenanza Impositiva Art 69", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Salto", "COBRO": "SAMO + Tasa asistencial Art. 206", "CONCEPTO": "Sistema SAMO y tasa asistencial impositiva.", "ORDENANZA": "Ordenanza Impositiva Art 206", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "San Andrés de Giles", "COBRO": "Tasa servicios asistenciales Art 247", "CONCEPTO": "Arancelamiento directo en hospital público.", "ORDENANZA": "Ordenanza Fiscal Art 247", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "San Antonio de Areco", "COBRO": "Tasa por servicios de salud Art 218", "CONCEPTO": "Tasa impositiva con destino a salud.", "ORDENANZA": "Ordenanza Fiscal Art 218", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "San Cayetano", "COBRO": "Sistema recupero SAMO", "CONCEPTO": "Adhesión exclusiva a Ley SAMO 11.069", "ORDENANZA": "Ordenanza Fiscal", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "San Fernando", "COBRO": "SAMO + Tasa asistencial Art. 141", "CONCEPTO": "Sistema SAMO y tasa asistencial impositiva.", "ORDENANZA": "Ordenanza Impositiva Art 141", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "San Isidro", "COBRO": "Sistema SAMO Art 141", "CONCEPTO": "Recupero SAMO a coberturas médicas.", "ORDENANZA": "Ordenanza Fiscal Art 141", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "San Miguel Joaquín", "COBRO": "Sistema SAMO Art 94", "CONCEPTO": "Adhesión a Ley SAMO 11.069", "ORDENANZA": "Ordenanza Fiscal Art 94", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "San Nicolás", "COBRO": "Sistema SAMO Art 301", "CONCEPTO": "Adhesión al régimen SAMO Ley 11.069", "ORDENANZA": "Ordenanza Fiscal Art 301", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "San Pedro", "COBRO": "Sistema SAMO Art. 250", "CONCEPTO": "Recupero asistencial vía SAMO.", "ORDENANZA": "Ordenanza Fiscal Art 250", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "San Vicente", "COBRO": "Contribución al Sistema de Salud Art. 367", "CONCEPTO": "Contribución obligatoria para salud pública.", "ORDENANZA": "Ordenanza Fiscal Art 367", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Suipacha", "COBRO": "Tasa de salud Art. 129 + Prestaciones Art. 132", "CONCEPTO": "Tasa impositiva y arancel por prestaciones.", "ORDENANZA": "Ordenanza Impositiva Art 129", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Tandil", "COBRO": "Ente Descentralizado Salud Art. 217", "CONCEPTO": "Cobro de aranceles por Ente Descentralizado.", "ORDENANZA": "Ordenanza Impositiva Art 217", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Tapalque", "COBRO": "Tasa servicios asistenciales Art. 200", "CONCEPTO": "Arancel asistencial e impuesto encubierto.", "ORDENANZA": "Ordenanza Impositiva Art 200", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Tigre", "COBRO": "SAMO + Tasa asistencial no residentes Art 83", "CONCEPTO": "Arancel asistencial para no residentes.", "ORDENANZA": "Ordenanza Impositiva Art 83", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Tordillo", "COBRO": "Tasa servicios asistenciales Art 28", "CONCEPTO": "Arancelamiento directo en efector público.", "ORDENANZA": "Ordenanza Impositiva Art 28", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Tornquist", "COBRO": "SAMO + Tasa servicios asistenciales Art. 142", "CONCEPTO": "Arancel asistencial directo en efector municipal.", "ORDENANZA": "Ordenanza Impositiva Art 142", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Trenque launquen", "COBRO": "SAMO + Tasa servicios asistenciales Art 89", "CONCEPTO": "Arancel asistencial hospitalario.", "ORDENANZA": "Ordenanza Impositiva Art 89", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Tres Arroyos", "COBRO": "Tasa solidaria de salud Art. 183", "CONCEPTO": "Tasa impositiva solidaria de salud.", "ORDENANZA": "Ordenanza Fiscal Art 183", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Tres de Febrero", "COBRO": "SAMO + Tributo servicios asistenciales Art 245", "CONCEPTO": "Tributo asistencial hospitalario.", "ORDENANZA": "Ordenanza Fiscal Art 245", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Tres Lomas", "COBRO": "Tasa servicios asistenciales", "CONCEPTO": "Arancel directo por atenciones médicas.", "ORDENANZA": "Ordenanza Impositiva", "DENSIDAD": "Baja (< 25.000 hab.)"},
+        {"MUNICIPIO": "Vicente López", "COBRO": "SAMO + Derechos asistenciales Art 254", "CONCEPTO": "Derechos asistenciales hospitalarios.", "ORDENANZA": "Ordenanza Fiscal Art 254", "DENSIDAD": "Alta (> 100.000 hab.)"},
+        {"MUNICIPIO": "Villa Gesell", "COBRO": "Tasa salud ART 148", "CONCEPTO": "Tasa impositiva especial de salud.", "ORDENANZA": "Código Tributario Art 148", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Villarino", "COBRO": "Derecho de comercialización hortícola para salud", "CONCEPTO": "Tasa impositiva con destino específico a salud.", "ORDENANZA": "Ordenanza Impositiva Art 232", "DENSIDAD": "Media (25k-100k hab.)"},
+        {"MUNICIPIO": "Zárate", "COBRO": "Sistema SAMO Art 217", "CONCEPTO": "Adhesión al régimen SAMO Ley 11.069", "ORDENANZA": "Ordenanza Fiscal Art 217", "DENSIDAD": "Alta (> 100.000 hab.)"}
     ]
-    return pd.DataFrame(raw_data)
+    df = pd.DataFrame(data_raw)
+    
+    def clasificar(row):
+        c = str(row['COBRO']).upper()
+        if any(w in c for w in ['ART.', 'ARANCEL', 'ASISTENCIAL', 'DERECHOS', 'IMPOSITIVA', 'COBRO', 'NO RESIDENTES']):
+            if 'ENCUBIERTO' in c or 'IMPUESTO' in c or 'FONDO' in c or 'CONTRIBUCIÓN' in c or 'TASA DE SALUD' in c:
+                return 'Categoría B (Tasa Encubierta)'
+            return 'Categoría C (Arancel Directo)'
+        elif 'SAMO' in c or 'GRATUIDAD' in c or 'AUSENCIA' in c:
+            return 'Categoría A (Gratuidad / SAMO)'
+        return 'Categoría C (Arancel Directo)'
 
-df_censo = get_censo_data()
+    df['CATEGORIA'] = df.apply(clasificar, axis=1)
+    return df
+
+df_censo = get_censo_pba()
 
 # ==========================================
 # BARRA LATERAL INSTITUCIONAL
 # ==========================================
-st.sidebar.image("https://img.icons8.com/color/96/scales.png", width=65)
-st.sidebar.title("SIA-PBA v2.0")
+st.sidebar.markdown("### 🏛️ SIA-PBA v2.0")
 st.sidebar.markdown("**Sistema Integrado de Auditoría Algorítmica y Canal Único**")
 st.sidebar.markdown("---")
 
 opcion_menu = st.sidebar.radio(
-    "Seleccione el Módulo:",
+    "Módulos del Sistema:",
     [
         "🏠 1. Presentación e Impacto TFC",
         "🔍 2. Módulo de Auditoría Algorítmica (IA)",
@@ -276,20 +310,53 @@ st.sidebar.info("""
 * **Enfoque:** Capítulo VIII - Propuesta de Innovación Tecnológica y Control de Convencionalidad
 """)
 
-# Header Institucional Superior
-st.markdown("""
-<div class='pba-header'>
-    <h1>GOBIERNO DE LA PROVINCIA DE BUENOS AIRES</h1>
-    <p>Sistema Integrado de Auditoría Algorítmica Preventiva de Ordenanzas y Canal Único de Denuncias (SIA-PBA)</p>
-</div>
-""", unsafe_allow_html=True)
+# ==========================================
+# HELPER DE EXTRACCIÓN DE TEXTO Y OCR
+# ==========================================
+def extract_text_from_pdf_upload(uploaded_file):
+    pdf_bytes = uploaded_file.read()
+    text = ""
+    method = "none"
+    num_pages = 0
+    
+    # 1. Intentar extracción sintáctica directa con pypdf
+    try:
+        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        num_pages = len(reader.pages)
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                text += t + "\n"
+    except Exception:
+        pass
+
+    if len(text.strip()) >= 50:
+        return text, "digital", num_pages
+
+    # 2. Si el texto es escaneado o vacío, intentar OCR página por página
+    ocr_text = ""
+    if OCR_AVAILABLE:
+        try:
+            total_p = get_page_count(pdf_bytes)
+            max_p = min(total_p, 30) # Procesamiento seguro de páginas para memoria
+            for i in range(1, max_p + 1):
+                images = convert_from_bytes(pdf_bytes, first_page=i, last_page=i, dpi=150)
+                if images:
+                    txt = pytesseract.image_to_string(images[0], lang='spa')
+                    ocr_text += txt + "\n"
+            if len(ocr_text.strip()) > 0:
+                return ocr_text, "ocr", total_p
+        except Exception:
+            pass
+
+    return text, "scanned_failed", num_pages
 
 # ==========================================
-# MÓDULO 1: PRESENTACIÓN E IMPACTO
+# MÓDULO 1: PRESENTACIÓN E IMPACTO TFC
 # ==========================================
 if "🏠 1. Presentación" in opcion_menu:
-    st.markdown("<h2 class='main-title'>SIA-PBA: Auditoría Algorítmica & Canal Único de Denuncias</h2>", unsafe_allow_html=True)
-    st.markdown("<p class='sub-title'>Dispositivo tecnológico de control preventivo de legalidad, constitucionalidad y convencionalidad de ordenanzas fiscales e impositivas municipales de la Provincia de Buenos Aires</p>", unsafe_allow_html=True)
+    st.markdown("<h2 class='main-title'>SIA-PBA: Control Preventivo de Convencionalidad</h2>", unsafe_allow_html=True)
+    st.markdown("<p class='sub-title'>Plataforma de Auditoría Algorítmica Preventiva de Ordenanzas Impositivas y Protección de Pacientes</p>", unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -302,56 +369,52 @@ if "🏠 1. Presentación" in opcion_menu:
         st.metric(label="Efecto Baja Densidad", value="74.0%", delta="Cat. C en <25k hab.", delta_color="inverse")
         
     st.markdown("---")
-    st.subheader("🎯 Ejes Fundamentales de la Herramienta (Capítulo VIII)")
     
+    st.subheader("🎯 Ejes Fundamentales de la Herramienta (Capítulo VIII)")
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("""
-        ### 🔍 1. Módulo de Auditoría Algorítmica de Ordenanzas
-        * **Análisis de Texto PNL:** Procesa automáticamente ordenanzas impositivas y fiscales locales.
-        * **Semáforo Tripartito de Convencionalidad:**
+        ### 🔍 1. Módulo de Auditoría Algorítmica Dual
+        * **Línea de Base Censo 2026:** Relevamiento histórico e integral de los 135 distritos bonaerenses.
+        * **Motor de Auditoría Futura (2027+):** Procesamiento automático de nuevas ordenanzas mediante PNL e IA de OCR para la ingesta de documentos escaneados.
+        * **Semáforo Tripartito:**
             * 🟢 **Cat. A (Gratuidad Plena / SAMO):** Cumplimiento del Art. 36 inc. 8 CPBA.
-            * 🟡 **Cat. B (Tasas Encubiertas):** Detección de tributos disfrazados en ABL/Red Vial.
-            * 🔴 **Cat. C (Arancelamiento Directo):** Alerta por cobros indebidos, pagarés o juicio de apremio.
-        * **Matriz de Alerta Preventiva:** Cita automática de normas vulneradas y encuadre penal (Art. 266 CP - Exacciones Ilegales).
+            * 🟡 **Cat. B (Tasas Encubiertas):** Tributos disfrazados sobre ABL/Red Vial.
+            * 🔴 **Cat. C (Arancel Directo):** Alerta por cobros directos, pagarés o apremios a personas sin cobertura.
         """)
     with c2:
         st.markdown("""
         ### 🛡️ 2. Canal Único Descentralizado de Denuncias Anónimas
-        * **Ruptura de la Espiral del Silencio:** Diseñado especialmente para ciudadanos de distritos de baja densidad con **efector único de salud**.
-        * **Garantía Absoluta de Anonimato:** Algoritmo de desvinculación IP con emisión de **Código Hash Criptográfico Único** para seguimiento.
-        * **Trazabilidad Institucional:** Derivación automática de alertas a la Defensoría del Pueblo PBA y Asesoría General de Gobierno.
+        * **Ruptura de la Espiral del Silencio:** Diseñado para ciudadanías de distritos con **efector único de salud**.
+        * **Garantía Criptográfica:** Hash irrecuperable con desvinculación IP.
+        * **Derivación Institucional:** Envío automático a la Defensoría del Pueblo PBA y Asesoría General de Gobierno.
         """)
 
 # ==========================================
-# MÓDULO 2: AUDITORÍA ALGORÍTMICA (IA)
+# MÓDULO 2: MÓDULO DE AUDITORÍA ALGORÍTMICA (IA)
 # ==========================================
 elif "🔍 2. Módulo de Auditoría" in opcion_menu:
     st.markdown("<h2 class='main-title'>🔍 Auditoría Algorítmica Preventiva de Ordenanzas</h2>", unsafe_allow_html=True)
-    st.markdown("Examen automatizado de constitucionalidad, convencionalidad y legalidad tributaria municipal.")
+    st.markdown("Examen de legalidad tributaria, constitucionalidad (Art. 36 inc. 8 CPBA) y convencionalidad (Art. 12 PIDESC).")
     st.markdown("---")
     
-    tab1, tab2 = st.tabs(["🏛️ Línea de Base 2026 (Consulta Histórica Censo N=135)", "🚀 Motor de Auditoría Futura 2027+ (Nuevas Ordenanzas)"])
+    tab1, tab2 = st.tabs(["🏛️ Submódulo 1: Línea de Base Censo 2026 (N=135)", "🚀 Submódulo 2: Motor de Auditoría Futura (Nuevas Ordenanzas 2027+)"])
     
-    # ------------------------------------------
-    # SUBMÓDULO 1: LÍNEA DE BASE 2026
-    # ------------------------------------------
     with tab1:
-        st.markdown("##### Seleccione un municipio para auditar su normativa tributario-sanitaria relevada en el Censo 2026:")
-        muni_selected = st.selectbox("Municipio de la Prov. de Bs. As.:", df_censo['MUNICIPIO'].unique(), key="muni_2026")
+        st.markdown("##### Seleccione un municipio para auditar su normativa tributario-sanitaria relevada:")
+        muni_selected = st.selectbox("Municipio de la Prov. de Bs. As.:", df_censo['MUNICIPIO'].unique(), key="muni_tab1")
         
         row_muni = df_censo[df_censo['MUNICIPIO'] == muni_selected].iloc[0]
         
-        st.markdown("### 📊 Resultado del Examen Algorítmico Automatizado (Línea de Base 2026)")
-        
+        st.markdown("### 📊 Resultado de la Auditoría Censo 2026")
         col_res1, col_res2 = st.columns([1, 2])
         
         with col_res1:
             cat = row_muni['CATEGORIA']
-            if 'Cat. C' in cat or 'Arancel' in cat or 'Categoría C' in cat:
+            if 'Categoría C' in cat or 'Cat. C' in cat:
                 st.error("🔴 **DICTAMEN: INCONSTITUCIONAL / ARANCEL DIRECTO**")
                 st.markdown("<span class='badge-cat-c'>Categoría C - Riesgo Alto</span>", unsafe_allow_html=True)
-            elif 'Cat. B' in cat or 'Encubierta' in cat or 'Categoría B' in cat:
+            elif 'Categoría B' in cat or 'Cat. B' in cat:
                 st.warning("🟡 **DICTAMEN: ADVERTENCIA / TASA ENCUBIERTA**")
                 st.markdown("<span class='badge-cat-b'>Categoría B - Riesgo Medio</span>", unsafe_allow_html=True)
             else:
@@ -363,207 +426,169 @@ elif "🔍 2. Módulo de Auditoría" in opcion_menu:
             st.write(f"**Norma Relevada:** {row_muni['ORDENANZA']}")
             
         with col_res2:
-            st.markdown("#### ⚖️ Fundamentación Jurídica de Alerta")
-            cobro_txt = str(row_muni['COBRO'])
-            st.markdown(f"**Disposición Tributaria Relevada:** *\"{cobro_txt}\"*")
+            st.markdown("#### ⚖️ Fundamentación Jurídica")
+            concepto_txt = str(row_muni['CONCEPTO']).replace('"', "'")
+            st.markdown(f"**Disposición Tributaria:** *'{concepto_txt}'*")
             
-            if 'Categoría C' in cat or 'Arancel' in cat or 'Cat. C' in cat:
+            if 'Categoría C' in cat:
                 st.markdown("""
                 <div class='legal-box'>
-                <b>⚠️ Vulneraciones Normativas Detectadas:</b><br>
-                1. <b>Violación del Art. 36 inc. 8 de la Constitución de la Prov. de Buenos Aires:</b> Imposición de barrera económica para acceder a la salud pública gratuita.<br>
-                2. <b>Infracción a Tratados Internacionales (Art. 75 inc. 22 CN):</b> Contravención del Art. 12 del PIDESC (Derecho al disfrute del más alto nivel posible de salud física y mental).<br>
-                3. <b>Encuadre Dogmático-Penal (Art. 266 del Código Penal):</b> Posible configuración de <i>Exacción Ilegal</i> por exigencia o cobro indebido de contribuciones/derechos bajo coercibilidad estatal.<br>
-                4. <b>Abuso de Autoridad (Art. 248 CP):</b> Dictado de resoluciones contrarias a la Constitución Provincial.
+                <b>⚠️ Vulneraciones Normativas Constatadas:</b><br>
+                1. <b>Violación del Art. 36 inc. 8 CPBA:</b> Imposición de barrera económica para acceder a la salud pública gratuita.<br>
+                2. <b>Infracción al PIDESC (Art. 75 inc. 22 CN):</b> Contravención del derecho a la salud sin discriminación económica.<br>
+                3. <b>Encuadre Penal (Art. 266 CP):</b> Posible configuración de <i>Exacción Ilegal</i> por exacción indebida bajo coerción fiscal.<br>
+                4. <b>Abuso de Autoridad (Art. 248 CP):</b> Dictado de ordenanzas contrarias a la Constitución Provincial.
                 </div>
                 """, unsafe_allow_html=True)
             elif 'Categoría B' in cat:
                 st.markdown("""
                 <div class='legal-box'>
-                <b>⚠️ Vulneraciones Normativas Detectadas:</b><br>
-                1. <b>Falta de Causa Tributaria / Analogía Impositiva:</b> Creación de tasas sin contraprestación directa de servicio al contribuyente.<br>
-                2. <b>Tasa Encubierta:</b> Adición de partidas presupuestarias sobre tributos domiciliarios (ABL/Red Vial) para financiar gastos generales de salud.
+                <b>⚠️ Vulneraciones Normativas Constatadas:</b><br>
+                1. <b>Falta de Causa Tributaria:</b> Creación de tasa sin prestación directa de servicio individualizado.<br>
+                2. <b>Impuesto Encubierto:</b> Recargo sobre Tasa Domiciliaria (ABL/Red Vial) para financiar gastos generales de salud.
                 </div>
                 """, unsafe_allow_html=True)
             else:
                 st.markdown("""
                 <div class='legal-box'>
                 <b>✅ Compatibilidad Constitucional Constatada:</b><br>
-                La normativa analizada respeta el principio de gratuidad del servicio público asistencial municipal y limita el recupero de costos de forma legítima frente a obras sociales o prepagas mediante el sistema SAMO (Ley Provincial 11.069).
+                La normativa analizada respeta la gratuidad del servicio asistencial e instrumenta el recupero legítimo a coberturas médicas mediante el régimen SAMO (Ley 11.069).
                 </div>
                 """, unsafe_allow_html=True)
 
-    # ------------------------------------------
-    # SUBMÓDULO 2: MOTOR DE AUDITORÍA FUTURA (2027+)
-    # ------------------------------------------
     with tab2:
-        st.markdown("##### 🚀 Motor de Ingesta y Procesamiento para Futuras Ordenanzas Impositivas (Ejercicio 2027 en adelante)")
-        st.markdown("Suba el archivo de la nueva ordenanza municipal aprobada o pegue su articulado fiscal para ejecutar la auditoría algorítmica preventiva antes de su entrada en vigencia:")
+        st.markdown("### 🤖 Motor de Auditoría Algorítmica Automatizada para Ejercicios Futuros")
+        st.markdown("Cargue el archivo PDF o pegue el articulado de la nueva ordenanza municipal para ejecutar el examen automático de constitucionalidad.")
         
-        c_fut1, c_fut2 = st.columns([1, 2])
-        with c_fut1:
-            muni_futuro = st.selectbox("Municipio a Auditar:", df_censo['MUNICIPIO'].unique(), key="muni_futuro")
-            anio_futuro = st.selectbox("Ejercicio Fiscal Futuro:", [2027, 2028, 2029, 2030], index=0)
-            
-        with c_fut2:
-            uploaded_file = st.file_uploader("Arrastre el archivo de la nueva Ordenanza Fiscal/Impositiva (PDF / TXT):", type=['pdf', 'txt'])
-            
-        texto_muestra_arrecifes = """ARTÍCULO 179.- Por la prestación de servicios asistenciales en el Hospital Municipal y Centros de Atención Primaria de la Salud, los pacientes que no acrediten fehacientemente situación de indigencia o falta de cobertura abonarán la tasa correspondiente según el Nomenclador Médico.
-ARTÍCULO 180.- El cobro de los aranceles vencidos se tramitará por la vía del apremio fiscal."""
-
-        texto_ordenanza_input = st.text_area(
-            "Texto del articulado impositivo a auditar (Si subió un PDF se procesará automáticamente; si es escaneado puede usar este cuadro):",
-            value=texto_muestra_arrecifes,
-            height=140
+        muni_futuro = st.selectbox("Municipio a auditar para nuevo ejercicio fiscal:", df_censo['MUNICIPIO'].unique(), key="muni_tab2")
+        anio_futuro = st.selectbox("Ejercicio Fiscal a Auditar:", ["2027", "2028", "2029"], index=0)
+        
+        uploaded_pdf = st.file_uploader(f"Adjuntar Ordenanza Fiscal/Impositiva de {muni_futuro} ({anio_futuro}) [PDF]:", type=['pdf'])
+        
+        texto_suplementario = st.text_area(
+            "O bien pegue el texto de la norma a auditar (Opcional):",
+            placeholder="Pegue aquí el articulado sobre tasas asistenciales o derechos sanitarios...",
+            height=130
         )
         
-        if st.button("🚀 Ejecutar Auditoría Algorítmica Futura (Ejercicio " + str(anio_futuro) + ")"):
+        if st.button(f"🚀 Ejecutar Auditoría Algorítmica {anio_futuro}"):
             texto_a_analizar = ""
-            fuente_procesada = ""
+            metodo_usado = "none"
+            cant_paginas = 0
             
-            # Intento de extracción de PDF seguro
-            if uploaded_file is not None:
-                if uploaded_file.name.lower().endswith('.pdf'):
-                    try:
-                        import pypdf
-                        reader = pypdf.PdfReader(uploaded_file)
-                        text_pdf = ""
-                        for page in reader.pages:
-                            t = page.extract_text()
-                            if t:
-                                text_pdf += t + "\n"
-                        if len(text_pdf.strip()) > 30:
-                            texto_a_analizar = text_pdf
-                            fuente_procesada = f"Archivo PDF subido ({len(reader.pages)} páginas)"
-                        else:
-                            st.warning("⚠️ El PDF subido es una imagen o fotocopia escaneada. Se utilizará el texto suplementario del editor.")
-                            texto_a_analizar = texto_ordenanza_input
-                            fuente_procesada = "Editor de Texto / Copia de respaldo"
-                    except Exception as err:
-                        st.warning(f"⚠️ Nota de lectura PDF: {err}. Se utiliza el texto del editor suplementario.")
-                        texto_a_analizar = texto_ordenanza_input
-                        fuente_procesada = "Editor de Texto"
+            if uploaded_pdf is not None:
+                texto_extracted, metodo_usado, cant_paginas = extract_text_from_pdf_upload(uploaded_pdf)
+                texto_a_analizar += texto_extracted
+                
+            if len(texto_suplementario.strip()) > 0:
+                texto_a_analizar += "\n" + texto_suplementario
+                if metodo_usado == "none":
+                    metodo_usado = "editor"
+
+            texto_a_analizar_clean = texto_a_analizar.strip()
+            
+            # CONTROL DE SEGURIDAD: EVITAR FALSOS POSITIVOS EN TEXTO VACÍO
+            if len(texto_a_analizar_clean) < 10:
+                st.error("❌ **ERROR DE PROCESAMIENTO: NO SE DETECTÓ TEXTO LEGIBLE PARA AUDITAR.**")
+                st.info("💡 **Causa:** El PDF subido es una imagen o fotocopia sin capa de texto digital y el motor OCR no pudo extraer palabras. Por favor copie y pegue el articulado en el cuadro de texto suplementario para ejecutar el diagnóstico.")
+            else:
+                if metodo_usado == "ocr":
+                    st.success(f"👁️‍🗨️ **Procesamiento por Visión Artificial OCR Exitoso:** Se leyeron {cant_paginas} páginas del PDF escaneado.")
+                elif metodo_usado == "digital":
+                    st.success(f"📄 **Procesamiento de PDF Digital Exitoso:** Se analizaron {cant_paginas} páginas.")
+                
+                # REGLAS DE MATCHING Y REGEX
+                patrones_c = [
+                    r'ARANCEL', r'BONO', r'ABONARÁ', r'NOMENCLADOR', r'APREMIO', r'COBRO',
+                    r'PAGARÉ', r'GUARDIA', r'SERVICIOS?\s+ASISTENCIAL', r'SUJETO\s+DE\s+COBRO',
+                    r'TASA\s+POR\s+SERVICIOS?\s+ASISTENCIAL', r'DERECHOS?\s+SANATORIAL',
+                    r'INDIGENCIA', r'CARENCIA', r'COBERTURA', r'HONORARIOS', r'ARANCELAMIENTO'
+                ]
+                patrones_b = [
+                    r'FONDO\s+ESPECIAL', r'ADICIONAL\s+SALUD', r'ALUMBRADO', r'RED\s+VIAL',
+                    r'TASA\s+DE\s+SALUD', r'IMPUESTO\s+ENCUBIERTO', r'CONTRIBUCIÓN\s+ESPECIAL',
+                    r'FORTALECIMIENTO\s+DE\s+SALUD', r'SOSTENIMIENTO\s+DE\s+SALUD'
+                ]
+                
+                texto_upper = texto_a_analizar_clean.upper()
+                matches_c = [p for p in patrones_c if re.search(p, texto_upper)]
+                matches_b = [p for p in patrones_b if re.search(p, texto_upper)]
+                
+                st.markdown("---")
+                st.subheader(f"📋 Dictamen de Auditoría Algorítmica - {muni_futuro} (Ejercicio {anio_futuro})")
+                
+                if len(matches_c) >= 2 or 'ARANCEL' in texto_upper or 'SERVICIOS ASISTENCIAL' in texto_upper:
+                    st.error("🔴 **ALERTA CRÍTICA: DETECTADAS CLÁUSULAS DE ARANCELAMIENTO INCONSTITUCIONAL (CATEGORÍA C)**")
+                    st.markdown("""
+                    <div class='legal-box'>
+                    <b>🚨 Dictamen de Convencionalidad: INCOMPATIBLE</b><br>
+                    La norma examinada impone gravámenes directos o aranceles sobre prestaciones sanitarias en efectores públicos, vulnerando el Art. 36 inc. 8 de la CPBA y encuadrando en prima facie Exacción Ilegal (Art. 266 CP).
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("##### 🔍 Artículos Infractores Extraídos del Documento:")
+                    lineas = texto_a_analizar_clean.split('\n')
+                    snippets = [l.strip() for l in lineas if any(re.search(pat, l.upper()) for pat in patrones_c) if len(l.strip()) > 15]
+                    for snip in snippets[:4]:
+                        snip_clean = snip.replace('"', "'").replace('<', '').replace('>', '')
+                        st.markdown(f"<div class='snippet-box'>'{snip_clean}'</div>", unsafe_allow_html=True)
+                        
+                elif len(matches_b) >= 1:
+                    st.warning("🟡 **ALERTA MEDIA: POSIBLE TASA ENCUBIERTA / TRIBUTO DISFRAZADO (CATEGORÍA B)**")
+                    st.markdown("""
+                    <div class='legal-box'>
+                    <b>⚠️ Dictamen de Legalidad Tributaria: ADVERTENCIA</b><br>
+                    Se detectaron partidas impositivas o fondos especiales sobre tasas domiciliarias para financiar gastos generales de salud sin contraprestación directa.
+                    </div>
+                    """, unsafe_allow_html=True)
                 else:
-                    texto_a_analizar = uploaded_file.read().decode('utf-8', errors='ignore')
-                    fuente_procesada = "Archivo TXT"
-            else:
-                texto_a_analizar = texto_ordenanza_input
-                fuente_procesada = "Texto en Editor Manual"
-                
-            st.info(f"✅ **Procesamiento Completado:** Análisis ejecutado sobre {fuente_procesada}.")
-            
-            # Motor de PNL y Coincidencias por RegEx
-            texto_upper = texto_a_analizar.upper()
-            
-            patrones_c = [
-                r'ARANCEL', r'SERVICIOS?\s+ASISTENCIAL', r'APREMIO', r'NOMENCLADOR',
-                r'BONO\s+DE\s+GUARDIA', r'ABONARÁ', r'DERECHOS?\s+SANATORIAL', r'PAGARÉ',
-                r'HOSPITAL\s+MUNICIPAL', r'COBRO\s+DIRECTO', r'SIN\s+COBERTURA', r'INDIGENCIA'
-            ]
-            
-            patrones_b = [
-                r'FONDO\s+MUNICIPAL\s+DE\s+SALUD', r'TASA\s+DE\s+SALUD', r'CONTRIBUCIÓN\s+ESPECIAL\s+SALUD',
-                r'ALUMBRADO.*SALUD', r'RED\s+VIAL.*SALUD', r'IMPUESTO\s+ENCUBIERTO', r'FORTALECIMIENTO.*SALUD'
-            ]
-            
-            matches_c = []
-            for pat in patrones_c:
-                found = re.findall(pat, texto_upper)
-                if found:
-                    matches_c.extend(found)
-                    
-            matches_b = []
-            for pat in patrones_b:
-                found = re.findall(pat, texto_upper)
-                if found:
-                    matches_b.extend(found)
-                    
-            st.markdown(f"### 📋 Dictamen de Auditoría Algorítmica - {muni_futuro} (Ejercicio {anio_futuro})")
-            
-            if len(matches_c) > 0:
-                st.error("🔴 **DICTAMEN CRÍTICO: NORMATIVA INCONSTITUCIONAL (CATEGORÍA C - ARANCEL DIRECTO)**")
-                st.markdown(f"**Coincidencias de Riesgo Crítico Detectadas:** `{len(matches_c)}` ({', '.join(set(matches_c))})")
-                
-                st.markdown("""
-                <div class='legal-box'>
-                <b>⚠️ Fundamentación Jurídica del Bloqueo Preventivo:</b><br>
-                1. <b>Violación Manifiesta del Art. 36 inc. 8 CPBA:</b> La norma proyectada condiciona el acceso a la salud asistencial pública al pago de un arancel, derecho sanatorio o comprobación de indigencia.<br>
-                2. <b>Alerta de Configuración Penal (Art. 266 CP):</b> El cobro bajo apercibimiento de apremio o exigencia indebida encuadra en la figura de <i>Exacción Ilegal</i>.<br>
-                3. <b>Acción Recomendada:</b> Emisión inmediata de Dictamen de Impugnación de Oficio ante el Tribunal de Cuentas PBA y la Asesoría General de Gobierno.
-                </div>
-                """, unsafe_allow_html=True)
-                
-                st.markdown("#### 📝 Citas Textuales Infractoras Extraídas del Documento:")
-                lines = texto_a_analizar.split('\n')
-                snippets_found = 0
-                for l in lines:
-                    if any(re.search(pat, l.upper()) for pat in patrones_c):
-                        st.markdown(f"<div class='snippet-box'>📌 <i>\"{l.strip()}\"</i></div>", unsafe_allow_html=True)
-                        snippets_found += 1
-                        if snippets_found >= 5:
-                            break
-                            
-            elif len(matches_b) > 0:
-                st.warning("🟡 **DICTAMEN DE ADVERTENCIA: TASA ENCUBIERTA DETECTADA (CATEGORÍA B)**")
-                st.markdown(f"**Coincidencias de Riesgo Medio Detectadas:** `{len(matches_b)}` ({', '.join(set(matches_b))})")
-                st.markdown("""
-                <div class='legal-box'>
-                <b>⚠️ Fundamentación de Alerta:</b> Se detectó la creación de tributos adicionales sobre servicios inmuebles o la tasa general para financiar el sistema asistencial sin contraprestación directa.
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.success("🟢 **DICTAMEN POSITIVO: NORMATIVA CONFORME A DERECHO / SIN CLÁUSULAS INCONSTITUCIONALES DETECTADAS**")
-                st.markdown("""
-                <div class='legal-box'>
-                <b>✅ Compatibilidad Constatada:</b> No se detectaron cláusulas de arancelamiento directo ni tasas encubiertas. La norma respeta la gratuidad garantizada por el Art. 36 inc. 8 de la Constitución Provincial.
-                </div>
-                """, unsafe_allow_html=True)
+                    st.success("🟢 **DICTAMEN POSITIVO: NORMATIVA CONFORME A DERECHO / SIN CLÁUSULAS INCONSTITUCIONALES**")
+                    st.markdown("""
+                    <div class='legal-box'>
+                    <b>✅ Compatibilidad Constatada:</b><br>
+                    No se detectaron aranceles directos ni tasas encubiertas. La norma respeta la gratuidad garantizada por el Art. 36 inc. 8 de la Constitución Provincial.
+                    </div>
+                    """, unsafe_allow_html=True)
 
 # ==========================================
-# MÓDULO 3: CANAL ÚNICO DE DENUNCIAS
+# MÓDULO 3: CANAL ÚNICO DE DENUNCIAS ANÓNIMAS
 # ==========================================
 elif "🛡️ 3. Canal Único" in opcion_menu:
     st.markdown("<h2 class='main-title'>🛡️ Canal Único Descentralizado de Denuncias Anónimas</h2>", unsafe_allow_html=True)
-    st.markdown("Dispositivo tecnológico de protección del paciente para la **ruptura de la espiral del silencio** en efectores únicos de salud.")
+    st.markdown("Dispositivo de protección al paciente para la ruptura de la espiral del silencio en efectores únicos de salud.")
     st.markdown("---")
     
     col_den1, col_den2 = st.columns([2, 1])
-    
     with col_den1:
         st.subheader("📝 Formulario de Denuncia Anónima Resguardada")
-        
-        muni_denuncia = st.selectbox("Seleccione el Municipio del hecho:", df_censo['MUNICIPIO'].unique())
+        muni_denuncia = st.selectbox("Seleccione Municipio del hecho:", df_censo['MUNICIPIO'].unique())
         efector = st.text_input("Nombre del Hospital Municipal / Centro de Salud (CAPS):", value="Hospital Municipal Subzonal")
-        
         tipo_irregularidad = st.selectbox(
-            "Tipo de Cobro Indebido o Exacción Sufrida:",
+            "Tipo de Cobro Indebido Sufrido:",
             [
                 "Cobro directo de arancel / bono de guardia",
-                "Exigencia de firma de pagaré para ingreso / alta médica",
-                "Cobro de 'plus' médico o contribución voluntaria obligatoria",
+                "Exigencia de firma de pagaré para atención médica / alta",
+                "Cobro de 'plus' médico o contribución obligatoria",
                 "Exigencia de compra de insumos/medicamentos básicos en el efector",
                 "Persecución judicial o intimación por juicio de apremio fiscal"
             ]
         )
+        monto = st.number_input("Monto exigido ($ ARS):", min_value=0, value=15000, step=1000)
+        detalles = st.text_area("Breve relato de la situación (preservando datos de terceros):")
+        st.file_uploader("Adjuntar comprobante o bono (Opcional - borra metadatos):", type=['jpg', 'png', 'pdf'])
         
-        monto = st.number_input("Monto aproximado exigido ($ ARS):", min_value=0, value=15000, step=1000)
-        detalles = st.text_area("Breve relato de la situación sufrida (preservando datos de terceros):")
-        
-        st.file_uploader("Adjuntar foto de recibo, bono, pagaré o comprobante (Opcional - borra metadatos):", type=['jpg', 'png', 'pdf'])
-        
-        if st.button("🔒 ENVIAR DENUNCIA ANÓNIMA REGISTRADA"):
+        if st.button("🔒 ENVIAR DENUNCIA ANÓNIMA ENCRIPTADA"):
             timestamp = str(datetime.datetime.now().timestamp())
             raw_data = f"{muni_denuncia}-{efector}-{tipo_irregularidad}-{timestamp}"
             hash_code = hashlib.sha256(raw_data.encode()).hexdigest()[:12].upper()
             
-            st.success("✅ **DENUNCIA ANÓNIMA REGISTRADA CON ÉXITO Y ENCRIPTADA**")
-            
+            st.success("✅ **DENUNCIA ANÓNIMA REGISTRADA Y ENCRIPTADA CON ÉXITO**")
             st.markdown(f"""
             <div style='background-color:#D4EDDA; padding:15px; border-radius:8px; border-left:5px solid #28A745;'>
                 <h4>🔒 Protocolo de Protección Criptográfica Activado</h4>
                 <p><b>CÓDIGO HASH ÚNICO DE SEGUIMIENTO:</b> <code>HASH-PBA-2026-{hash_code}</code></p>
                 <p><b>Trazabilidad IP:</b> DESVINCULADA Y ELIMINADA.<br>
-                <b>Estado de Derivación:</b> Transmitido automáticamente al expediente electrónico auditado de la Defensoría del Pueblo de la Provincia de Buenos Aires.</p>
+                <b>Estado de Derivación:</b> Transmitido automáticamente al expediente electrónico de la Defensoría del Pueblo de la Prov. de Buenos Aires.</p>
             </div>
             """, unsafe_allow_html=True)
             
@@ -571,26 +596,25 @@ elif "🛡️ 3. Canal Único" in opcion_menu:
         st.markdown("### 💡 ¿Por qué un Canal Único?")
         st.info("""
         **Garantía contra la Espiral del Silencio (Capítulo V):**
-        En los distritos con **efector único de salud**, los ciudadanos temen denunciar por miedo a perder la atención sanitaria futura o sufrir represalias sociales.
+        En distritos con **efector único de salud**, los ciudadanos temen denunciar represalias o perder la atención sanitaria futura.
         
         Este canal:
-        1. **Elimina la huella digital e IP.**
-        2. **Asigna una clave única irrecuperable.**
-        3. **Agrupa denuncias por municipio** para fundamentar amparos colectivos o investigaciones del Ministerio Público Fiscal (Art. 266 CP).
+        1. **Elimina la dirección IP y metadatos.**
+        2. **Otorga un Hash Criptográfico único irrecuperable.**
+        3. **Consolida denuncias** para fundamentar amparos colectivos e investigaciones del Ministerio Público Fiscal (Art. 266 CP).
         """)
 
 # ==========================================
-# MÓDULO 4: TABLERO DE CONTROL (N=135)
+# MÓDULO 4: TABLERO DE CONTROL CENSO PROVINCIAL (N=135)
 # ==========================================
 elif "📊 4. Tablero de Control" in opcion_menu:
     st.markdown("<h2 class='main-title'>📊 Tablero Epidemiológico-Tributario Censo Provincial 100%</h2>", unsafe_allow_html=True)
-    st.markdown("Visualización estadística de los 135 municipios de la Provincia de Buenos Aires (Datos Censo 2022 y Ordenanzas 2025/2026).")
+    st.markdown("Visualización estadística de los 135 municipios bonaerenses.")
     st.markdown("---")
     
     c_g1, c_g2 = st.columns(2)
-    
     with c_g1:
-        st.subheader("Gráfico 1: Modalidades de Financiamiento Asistencial (N=135)")
+        st.subheader("Gráfico 1: Modalidades de Financiamiento (N=135)")
         pie_data = pd.DataFrame({
             'Categoría': ['Cat. A (Gratuidad/SAMO)', 'Cat. B (Tasas Encubiertas)', 'Cat. C (Arancel Directo)'],
             'Municipios': [54, 31, 50]
@@ -608,7 +632,7 @@ elif "📊 4. Tablero de Control" in opcion_menu:
         st.plotly_chart(fig1, use_container_width=True)
         
     with c_g2:
-        st.subheader("Gráfico 2: Prevalencia según Tramo de Densidad Poblacional")
+        st.subheader("Gráfico 2: Prevalencia según Densidad Poblacional")
         bar_data = pd.DataFrame({
             'Tramo Densidad': ['Baja (< 25k hab)', 'Baja (< 25k hab)', 'Baja (< 25k hab)',
                                'Media (25k-100k)', 'Media (25k-100k)', 'Media (25k-100k)',
@@ -623,53 +647,50 @@ elif "📊 4. Tablero de Control" in opcion_menu:
         )
         st.plotly_chart(fig2, use_container_width=True)
         
-    st.subheader("📋 Matriz Completa del Censo de Municipios (N=135)")
-    st.dataframe(df_censo[['MUNICIPIO', 'DENSIDAD', 'CATEGORIA', 'ORDENANZA', 'COBRO']], use_container_width=True)
+    st.subheader("📋 Matriz Completa Censo Provincial (135 Municipios)")
+    st.dataframe(df_censo[['MUNICIPIO', 'DENSIDAD', 'CATEGORIA', 'ORDENANZA', 'CONCEPTO']], use_container_width=True)
 
 # ==========================================
-# MÓDULO 5: GENERADOR DE DICTÁMENES
+# MÓDULO 5: GENERADOR DE DICTÁMENES DE ALERTA
 # ==========================================
 elif "📄 5. Generador de Dictámenes" in opcion_menu:
     st.markdown("<h2 class='main-title'>📄 Generador de Dictámenes de Alerta de Inconstitucionalidad</h2>", unsafe_allow_html=True)
-    st.markdown("Emisión automática de piezas jurídicas de impugnación institucionales.")
+    st.markdown("Emisión automática de piezas jurídicas institucionales de impugnación.")
     st.markdown("---")
     
     muni_dictamen = st.selectbox("Seleccione Municipio para emitir Dictamen:", df_censo['MUNICIPIO'].unique())
-    
     row_d = df_censo[df_censo['MUNICIPIO'] == muni_dictamen].iloc[0]
     
     dictamen_text = f"""========================================================================================
+GOBIERNO DE LA PROVINCIA DE BUENOS AIRES // SISTEMA SIA-PBA
 ALERTA INSTITUCIONAL DE INCONSTITUCIONALIDAD Y INCONVENCIONALIDAD TRIBUTARIA
-SIA-PBA // AUDITORÍA ALGORÍTMICA DE ORDENANZAS MUNICIPALES
 ========================================================================================
 
 FECHA DE EMISIÓN: {datetime.date.today().strftime('%d/%m/%Y')}
 SUJETO AUDITADO: Municipalidad de {row_d['MUNICIPIO']} (Provincia de Buenos Aires)
 DENSIDAD POBLACIONAL: {row_d['DENSIDAD']}
 NORMA EXAMINADA: {row_d['ORDENANZA']}
-DISPOSICIÓN TRIBUTARIA: "{row_d['COBRO']}"
+DISPOSICIÓN TRIBUTARIA: "{row_d['CONCEPTO']}"
 CLASIFICACIÓN ALGORÍTMICA: {row_d['CATEGORIA']}
 
 ----------------------------------------------------------------------------------------
 I. CONSIDERANDOS JURÍDICOS Y NORMATIVOS:
 ----------------------------------------------------------------------------------------
 1. Que la disposición analizada impone un gravamen / arancel / bono asistencial sobre la prestación pública de salud asistencial brindada en el efector municipal.
-2. Que dicha exigencia vulnera de forma ostensible el Principio de Gratuidad de la Salud Pública consagrado en el Artículo 36 inciso 8 de la Constitución de la Provincia de Buenos Aires.
-3. Que la imposición representa una barrera económica de acceso contraria al Artículo 12 del Pacto Internacional de Derechos Económicos, Sociales y Culturales (PIDESC) incorporado con jerarquía constitucional (Art. 75 inc. 22 CN).
-4. Que la exigencia o cobro indebido bajo coercibilidad o apercibimiento de apremio fiscal encuadra prima facie en la figura delictual de Exacción Ilegal (Art. 266 del Código Penal Argentino).
+2. Que dicha exigencia vulnera el Principio de Gratuidad de la Salud Pública consagrado en el Artículo 36 inciso 8 de la Constitución de la Provincia de Buenos Aires.
+3. Que la imposición representa una barrera económica contraria al Artículo 12 del Pacto Internacional de Derechos Económicos, Sociales y Culturales (PIDESC - Art. 75 inc. 22 CN).
+4. Que el cobro indebido bajo coerción fiscal encuadra prima facie en Exacción Ilegal (Art. 266 del Código Penal Argentino).
 
 ----------------------------------------------------------------------------------------
 II. DICTAMEN Y RECOMENDACIÓN INSTITUCIONAL:
 ----------------------------------------------------------------------------------------
-SE RECOMIENDA a la Asesoría General de Gobierno de la Provincia de Buenos Aires y al Honorable Tribunal de Cuentas promover la revisión de oficio del módulo impositivo de la Municipalidad de {row_d['MUNICIPIO']}, instando la adecuación inmediata al régimen SAMO (Ley 11.069) y el cese de todo cobro directo al paciente sin cobertura.
+SE RECOMIENDA a la Asesoría General de Gobierno de la Provincia de Buenos Aires y al Honorable Tribunal de Cuentas promover la revisión de oficio del módulo impositivo de la Municipalidad de {row_d['MUNICIPIO']}, instando la adecuación inmediata al régimen SAMO (Ley 11.069).
 
 ========================================================================================
 SIA-PBA // Trabajo Final de Carrera (TFC) - Abogacía UCES
 ========================================================================================
 """
-    
     st.text_area("Vista previa del Dictamen Jurídico:", value=dictamen_text, height=350)
-    
     st.download_button(
         label="📥 DESCARGAR DICTAMEN JURÍDICO (TXT)",
         data=dictamen_text,
