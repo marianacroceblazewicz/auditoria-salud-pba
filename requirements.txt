@@ -2,8 +2,7 @@ streamlit
 pandas
 numpy
 plotly
+google-generativeai
 pypdf
 pdf2image
 pytesseract
-pillow
-google-generativeai
